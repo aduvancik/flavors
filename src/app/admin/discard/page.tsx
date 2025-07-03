@@ -1,10 +1,11 @@
 'use client';
-
+//diskard
 import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import DiscardLiquidForm, { LiquidProduct } from "@/components/DiscardLiquidForm/DiscardLiquidForm";
+import { sendAvailabilityAndSellerLog } from "@/lib/updateLog";
 
 export default function DiscardPage() {
   const [products, setProducts] = useState<LiquidProduct[]>([]);
@@ -24,6 +25,12 @@ export default function DiscardPage() {
     load();
   }, []);
 
+  // Ось тут
+  async function handleDiscard(brand: string, flavor: string) {
+    alert(`✅ Списано 1 одиницю: ${brand} – ${flavor}`);
+    await sendAvailabilityAndSellerLog(`✅ Списано 1 одиницю: ${brand} – ${flavor}`);
+  }
+
   return (
     <div className="p-6 space-y-4 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold">🗑️ Списати рідину</h1>
@@ -40,9 +47,7 @@ export default function DiscardPage() {
       ) : (
         <DiscardLiquidForm
           products={products}
-          onDiscard={(brand, flavor) =>
-            alert(`✅ Списано 1 одиницю: ${brand} – ${flavor}`)
-          }
+          onDiscard={handleDiscard}  // Передаємо функцію без alert тут
         />
       )}
     </div>

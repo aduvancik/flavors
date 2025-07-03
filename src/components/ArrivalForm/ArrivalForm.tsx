@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { addOrUpdateProduct, uploadImage } from './firebaseUtils';
 import { Flavor } from './FlavorInputs';
+import { getRemainingTotal, sendAvailabilityAndSellerLog, sendReportAndAvailability } from '@/lib/updateLog';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface ArrivalFormProps {
   initialData?: {
@@ -163,7 +166,25 @@ export default function ArrivalForm({
       const result = await addOrUpdateProduct(type as any, productData, existingDocId);
 
       alert(result === 'updated' ? '✅ Товар оновлено!' : '✅ Новий товар додано!');
+      const message = `${result === 'updated' ? '✅ Товар оновлено!' : '✅ Новий товар додано!'}
+      `;
+      const newTotal = await getRemainingTotal();
+      const logRef = doc(db, 'seller_logs', 'current');
+      const logSnap = await getDoc(logRef);
+      const existing = logSnap.exists() ? logSnap.data() : {
+        cash: 0,
+        card: 0,
+        salary: 0,
+        mine: 0,
+      };
 
+      await sendReportAndAvailability({
+        total: newTotal,
+        cash: existing.cash,
+        card: existing.card,
+        salary: existing.salary,
+        mine: existing.mine,
+      }, message);
       if (onSaveComplete) onSaveComplete();
 
       // Якщо не редагуємо, очищаємо форму
