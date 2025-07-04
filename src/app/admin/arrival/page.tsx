@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ArrivalForm from '@/components/ArrivalForm/ArrivalForm';
+import { getRemainingTotal, sendReportAndAvailability } from '@/lib/updateLog';
 
 type Flavor = { name: string; quantity: string };
 
@@ -66,10 +67,41 @@ export default function Page() {
   }
 
   // Після збереження у ArrivalForm повернутись до вибору режиму
-  function onSaveComplete() {
+
+  // ...
+
+  async function onSaveComplete() {
+    console.log("log");
+
+    try {
+      const newTotal = await getRemainingTotal();
+
+      const logRef = doc(db, 'seller_logs', 'current');
+      const logSnap = await getDoc(logRef);
+      const existing = logSnap.exists() ? logSnap.data() : {
+        cash: 0,
+        card: 0,
+        salary: 0,
+        mine: 0,
+      };
+
+      const message = '✅ Збережено товар через ArrivalForm';
+
+      await sendReportAndAvailability({
+        total: newTotal,
+        cash: existing.cash,
+        card: existing.card,
+        salary: existing.salary,
+        mine: existing.mine,
+      }, message);
+    } catch (err) {
+      console.error("Помилка надсилання звіту:", err);
+    }
+
     setSelectedBrand(null);
     setMode('choose');
   }
+
 
   // --- UI ---
 
@@ -113,7 +145,7 @@ export default function Page() {
 
           <ArrivalForm
             initialData={selectedBrand}
-            isEditMode={true}
+            isEditMode={false}
             onSaveComplete={onSaveComplete}
           />
         </div>

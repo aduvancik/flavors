@@ -33,6 +33,7 @@ export default function AdminDashboard() {
     const fetch = async () => {
       const ref = doc(db, 'seller_logs', 'current');
       const snap = await getDoc(ref);
+
       if (snap.exists()) {
         const data = snap.data();
         setLog(data);
@@ -43,10 +44,23 @@ export default function AdminDashboard() {
           salary: String(data.salary ?? 0),
           mine: String(data.mine ?? 0),
         });
+      } else {
+        // Створити новий документ, якщо він відсутній
+        const emptyData = { total: 0, cash: 0, card: 0, salary: 0, mine: 0 };
+        await setDoc(ref, emptyData);
+        setLog(emptyData);
+        setForm({
+          total: '0',
+          cash: '0',
+          card: '0',
+          salary: '0',
+          mine: '0',
+        });
       }
     };
     fetch();
   }, []);
+
 
   const sendReportAndAvailability = async (newData: any, operation: string) => {
     const snapshot = await getDocs(collection(db, 'liquids'));

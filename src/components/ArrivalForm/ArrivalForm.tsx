@@ -29,6 +29,9 @@ const PRODUCT_TYPES = [
   { label: 'Нікобустери', value: 'nicoboosters' },
 ];
 
+console.log("1");
+
+
 export default function ArrivalForm({
   initialData,
   isEditMode = false,
@@ -59,19 +62,27 @@ export default function ArrivalForm({
       setImageUrl(initialData.imageUrl || '');
       setVolume(initialData.volume || '10');
       setQuantity(initialData.quantity?.toString() || '');
-      setFlavors(
-        initialData.flavors && initialData.flavors.length > 0
-          ? initialData.flavors.map(f => ({
-            name: f.name,
-            quantity: f.quantity.toString(),
-          }))
-          : [{ name: '', quantity: '' }]
-      );
-      // Визначаємо тип залежно від наявності volume або quantity
+
+      if (isEditMode) {
+        // При редагуванні — підставляємо існуючі смаки
+        setFlavors(
+          initialData.flavors && initialData.flavors.length > 0
+            ? initialData.flavors.map(f => ({
+              name: f.name,
+              quantity: f.quantity.toString(),
+            }))
+            : [{ name: '', quantity: '' }]
+        );
+      } else {
+        // При додаванні до існуючого бренду — flavors пусті
+        setFlavors([{ name: '', quantity: '' }]);
+      }
+
       if (initialData.volume) setType('liquids');
-      else if (initialData.quantity) setType('cartridges'); // або nicoboosters, логіку можна розширити
+      else if (initialData.quantity) setType('cartridges');
     }
-  }, [initialData]);
+  }, [initialData, isEditMode]);
+
 
   // Додавання нового смаку
   const handleAddFlavor = () => {
@@ -125,9 +136,12 @@ export default function ArrivalForm({
 
     return true;
   };
+  console.log("handleSubmit");
 
   // Збереження
   const handleSubmit = async () => {
+    console.log("handleSubmit");
+
     if (!isValid()) {
       alert('❌ Заповніть всі обов’язкові поля та додайте фото');
       return;
@@ -160,31 +174,46 @@ export default function ArrivalForm({
         productData.quantity = parseInt(quantity);
       }
 
+
+
       // Якщо редагування, передаємо id документу для оновлення
+      console.log("20");
+
       const existingDocId = initialData?.id;
+      console.log("00");
 
       const result = await addOrUpdateProduct(type as any, productData, existingDocId);
+      console.log("10");
 
       alert(result === 'updated' ? '✅ Товар оновлено!' : '✅ Новий товар додано!');
       const message = `${result === 'updated' ? '✅ Товар оновлено!' : '✅ Новий товар додано!'}
       `;
-      const newTotal = await getRemainingTotal();
-      const logRef = doc(db, 'seller_logs', 'current');
-      const logSnap = await getDoc(logRef);
-      const existing = logSnap.exists() ? logSnap.data() : {
-        cash: 0,
-        card: 0,
-        salary: 0,
-        mine: 0,
-      };
+      console.log("33");
 
-      await sendReportAndAvailability({
-        total: newTotal,
-        cash: existing.cash,
-        card: existing.card,
-        salary: existing.salary,
-        mine: existing.mine,
-      }, message);
+      try {
+        console.log("44");
+
+        const newTotal = await getRemainingTotal();
+
+        const logRef = doc(db, 'seller_logs', 'current');
+        const logSnap = await getDoc(logRef);
+        const existing = logSnap.exists() ? logSnap.data() : {
+          cash: 0,
+          card: 0,
+          salary: 0,
+          mine: 0,
+        };
+        console.log("77");
+        const message = '✅ Збережено товар через ArrivalForm';
+        console.log("66");
+        await sendAvailabilityAndSellerLog(`${result === 'updated' ? '✅ Товар оновлено!' : '✅ Новий товар додано!'}`)
+      } catch (err) {
+        console.error("Помилка надсилання звіту:", err);
+      } console.log("55");
+      if (isEditMode) {
+
+      }
+
       if (onSaveComplete) onSaveComplete();
 
       // Якщо не редагуємо, очищаємо форму

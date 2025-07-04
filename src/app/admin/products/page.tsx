@@ -7,6 +7,7 @@ import {
 import { db } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
+import { sendAvailabilityAndSellerLog } from '@/lib/updateLog';
 
 const PRODUCT_TYPES = [
   { label: 'Рідини', value: 'liquids' },
@@ -189,7 +190,10 @@ export default function ProductsPage() {
       }
 
       await updateDoc(docRef, updatedData);
+      const message = `✅ Товар оновлено!`;
+      await sendAvailabilityAndSellerLog(message);
       alert('✅ Товар оновлено!');
+
 
       // Оновити локальний список товарів
       setProducts(prevProducts =>
