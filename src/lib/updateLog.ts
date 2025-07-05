@@ -3,8 +3,9 @@
 import { doc, setDoc, getDocs, collection, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-const TELEGRAM_BOT_TOKEN = '7716741812:AAEF9h_3of02kJ6NsBxrRk0_2b3z7e58oHA';
-const TELEGRAM_CHAT_ID = '-1002893695048';
+const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN!;
+const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID!;
+
 
 export async function sendTelegramMessage(text: string) {
   await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {

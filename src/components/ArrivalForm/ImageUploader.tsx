@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import React from 'react';
 
 interface ImageUploaderProps {
@@ -25,7 +26,13 @@ export default function ImageUploader({
     <div>
       {imageUrl && !imageFile && (
         <div className="mb-2">
-          <img src={imageUrl} alt="Поточне фото" className="max-w-xs" />
+          <Image
+            src={imageUrl}
+            alt="Поточне фото"
+            width={300} // або будь-яке число (в пікселях)
+            height={200} // або будь-яке число
+            className="max-w-xs h-auto"
+          />
         </div>
       )}
       <input

@@ -19,7 +19,7 @@ import { doc } from 'firebase/firestore';
 
 import { Flavor } from './FlavorInputs';
 
-interface ProductData {
+export default interface ProductData {
   brand: string;
   purchasePrice: number;
   salePrice: number;

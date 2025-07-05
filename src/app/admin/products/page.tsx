@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { sendAvailabilityAndSellerLog } from '@/lib/updateLog';
+import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 
 const PRODUCT_TYPES = [
   { label: 'Рідини', value: 'liquids' },
@@ -218,14 +219,16 @@ export default function ProductsPage() {
 
   if (!selectedType) {
     return (
-      <div className="max-w-xl mx-auto p-6 bg-white shadow rounded-md space-y-6 text-center">
-        <h1 className="text-2xl font-bold mb-4">Виберіть тип товару для перегляду</h1>
+      <div className="max-w-xl mx-auto p-6 bg-white dark:bg-black text-black dark:text-white shadow-lg rounded-md space-y-6 text-center border border-gray-300 dark:border-gray-600 transition-all duration-300">
+
+        <h1 className="text-2xl font-extrabold mb-4 tracking-wide">Виберіть тип товару для перегляду</h1>
+
         <div className="flex justify-center gap-4">
           {PRODUCT_TYPES.map(t => (
             <button
               key={t.value}
               onClick={() => setSelectedType(t.value)}
-              className="bg-blue-600 text-white py-3 px-6 rounded hover:bg-blue-700"
+              className="px-6 py-3 border border-black dark:border-white rounded-md bg-white dark:bg-black text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black shadow-md transition-all duration-200 active:scale-95"
             >
               {t.label}
             </button>
@@ -237,29 +240,32 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-xl mx-auto p-6 text-center font-semibold">
-        Завантаження товарів...
+      <div className="max-w-xl mx-auto p-6 text-center font-semibold text-black dark:text-white">
+        <LoadingSpinner />
       </div>
     );
   }
 
   if (editingProduct) {
     return (
-      <div className="max-w-xl mx-auto p-6 bg-white shadow rounded-md space-y-4">
-        <h2 className="text-xl font-bold mb-4">Редагування товару: {editingProduct.brand}</h2>
+      <div className="max-w-xl mx-auto p-6 bg-white dark:bg-black text-black dark:text-white shadow-lg rounded-md space-y-6 border border-gray-300 dark:border-gray-600 transition-colors duration-300">
+
+        <h2 className="text-xl font-bold mb-4 tracking-wide text-center">
+          Редагування товару: {editingProduct.brand}
+        </h2>
 
         <input
           value={brand}
           onChange={e => setBrand(e.target.value)}
           placeholder="Бренд"
-          className="border p-2 w-full"
+          className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
         />
 
         {selectedType === 'liquids' && (
           <select
             value={volume}
             onChange={e => setVolume(e.target.value)}
-            className="border p-2 w-full"
+            className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
           >
             <option value="10">10 мл</option>
             <option value="15">15 мл</option>
@@ -270,7 +276,7 @@ export default function ProductsPage() {
         <div>
           <label className="block mb-1 font-semibold">Фото товару</label>
           {imageUrl && !imageFile && (
-            <img src={imageUrl} alt="Фото товару" className="mb-2 max-h-40 object-contain" />
+            <img src={imageUrl} alt="Фото товару" className="mb-2 max-h-40 object-contain rounded-md" />
           )}
           <input
             ref={fileInputRef}
@@ -280,6 +286,7 @@ export default function ProductsPage() {
               setImageUrl('');
             }}
             accept="image/*"
+            className="cursor-pointer"
           />
         </div>
 
@@ -287,48 +294,48 @@ export default function ProductsPage() {
           value={purchasePrice}
           onChange={e => setPurchasePrice(e.target.value)}
           placeholder="Ціна закупки"
-          className="border p-2 w-full"
+          className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
         />
 
         <input
           value={salePrice}
           onChange={e => setSalePrice(e.target.value)}
           placeholder="Ціна продажу"
-          className="border p-2 w-full"
+          className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
         />
 
         <input
           value={sellerAmount}
           onChange={e => setSellerAmount(e.target.value)}
           placeholder="Сума продавцю"
-          className="border p-2 w-full"
+          className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
         />
 
         {selectedType === 'liquids' && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h3 className="font-semibold">Смаки</h3>
             {flavors.map((f, i) => (
-              <div key={i} className="flex gap-2">
+              <div key={i} className="flex gap-3">
                 <input
                   value={f.name}
                   onChange={e => handleFlavorChange(i, 'name', e.target.value)}
                   placeholder="Назва смаку"
-                  className="border p-2 w-full"
+                  className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
                 />
                 <input
                   type="number"
                   value={f.quantity === '' ? '' : f.quantity}
                   onChange={e => handleFlavorChange(i, 'quantity', e.target.value)}
                   placeholder="К-сть"
-                  className="border p-2 w-24"
                   min={0}
+                  className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-24 rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
                 />
               </div>
             ))}
             <button
               onClick={handleAddFlavor}
               type="button"
-              className="text-blue-600 underline"
+              className="text-blue-600 dark:text-blue-400 underline cursor-pointer hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-300"
             >
               + Додати смак
             </button>
@@ -341,15 +348,16 @@ export default function ProductsPage() {
             placeholder="Кількість (шт)"
             value={quantity}
             onChange={e => setQuantity(e.target.value)}
-            className="border p-2 w-full"
             min={0}
+            className="border border-gray-400 dark:border-gray-600 bg-transparent px-3 py-2 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-colors duration-300"
           />
         )}
 
-        <div className="flex gap-4 mt-4">
+        <div className="flex gap-4 mt-6">
           <button
             onClick={cancelEdit}
-            className="border border-gray-400 py-2 px-4 rounded w-full hover:bg-gray-100"
+            className="border border-gray-400 dark:border-gray-600 py-2 px-4 rounded w-full hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors duration-300"
+            type="button"
           >
             Назад до списку
           </button>
@@ -357,7 +365,8 @@ export default function ProductsPage() {
           <button
             onClick={handleSave}
             disabled={saving || !isValid()}
-            className="bg-blue-600 text-white py-2 px-4 rounded w-full hover:bg-blue-700 disabled:opacity-50"
+            className="bg-blue-600 dark:bg-blue-700 text-white py-2 px-4 rounded w-full hover:bg-blue-700 dark:hover:bg-blue-800 disabled:opacity-50 cursor-pointer transition-colors duration-300"
+            type="button"
           >
             {saving ? 'Збереження...' : 'Зберегти зміни'}
           </button>
@@ -366,41 +375,60 @@ export default function ProductsPage() {
     );
   }
 
+
   // Список товарів для вибраного типу
   return (
-    <div className="max-w-xl mx-auto p-6 bg-white shadow rounded-md">
-      <h1 className="text-2xl font-bold mb-4 text-center">
+    <div className="max-w-xl mx-auto p-6 bg-white dark:bg-black text-black dark:text-white shadow-lg rounded-md border border-gray-300 dark:border-gray-600 transition-colors duration-300">
+
+      <h1 className="text-2xl font-extrabold mb-6 text-center tracking-wide">
         Товари: {PRODUCT_TYPES.find(t => t.value === selectedType)?.label}
       </h1>
 
-      {products.length === 0 && <p className="text-center">Немає товарів для цього типу.</p>}
+      {products.length === 0 && (
+        <p className="text-center text-gray-600 dark:text-gray-400 font-medium">
+          Немає товарів для цього типу.
+        </p>
+      )}
 
-      <ul className="space-y-3">
+      <ul className="space-y-4">
         {products.map(prod => (
           <li
             key={prod.id}
-            className="border p-3 rounded hover:bg-gray-50 cursor-pointer flex items-center gap-3"
             onClick={() => startEditProduct(prod)}
+            className="flex items-center gap-4 p-4 border border-gray-300 dark:border-gray-700 rounded-md cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 select-none"
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter') startEditProduct(prod) }}
           >
-            <img src={prod.imageUrl} alt={prod.brand} className="w-16 h-16 object-contain" />
-            <div>
+            <img
+              src={prod.imageUrl}
+              alt={prod.brand}
+              className="w-16 h-16 object-contain flex-shrink-0 rounded"
+              loading="lazy"
+              draggable={false}
+            />
+            <div className="text-sm sm:text-base leading-snug">
               <p><b>Бренд:</b> {prod.brand}</p>
-              {selectedType === 'liquids' && <p><b>Об’єм:</b> {prod.volume} мл</p>}
-              {selectedType !== 'liquids' && <p><b>Кількість:</b> {prod.quantity || 0} шт</p>}
+              {selectedType === 'liquids' ? (
+                <p><b>Об’єм:</b> {prod.volume} мл</p>
+              ) : (
+                <p><b>Кількість:</b> {prod.quantity || 0} шт</p>
+              )}
               <p><b>Ціна продажу:</b> {prod.salePrice} ₴</p>
             </div>
           </li>
         ))}
       </ul>
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-8 flex justify-center">
         <button
           onClick={() => setSelectedType('')}
-          className="border border-gray-400 py-2 px-4 rounded hover:bg-gray-100"
+          className="border border-gray-400 dark:border-gray-600 px-5 py-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 font-semibold focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
         >
           Назад до вибору типу товару
         </button>
       </div>
     </div>
+
   );
 }

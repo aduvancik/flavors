@@ -1,10 +1,13 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import ArrivalForm from '@/components/ArrivalForm/ArrivalForm';
-import { getRemainingTotal, sendReportAndAvailability } from '@/lib/updateLog';
+import React, { useState, useEffect } from "react";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import ArrivalForm from "@/components/ArrivalForm/ArrivalForm";
+import { getRemainingTotal, sendReportAndAvailability } from "@/lib/updateLog";
+import Link from "next/link";
+
+// Типи
 
 type Flavor = { name: string; quantity: string };
 
@@ -19,130 +22,120 @@ type LiquidProduct = {
   flavors: Flavor[];
 };
 
+// Компонент
 
 export default function Page() {
-  const [mode, setMode] = useState<'choose' | 'new' | 'edit'>('choose');
+  const [mode, setMode] = useState<"choose" | "new" | "edit">("choose");
   const [brands, setBrands] = useState<LiquidProduct[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<LiquidProduct | null>(null);
 
-  // Завантажуємо унікальні бренди рідин при виборі режиму edit
   useEffect(() => {
-    if (mode === 'edit') {
-      loadBrands();
-    }
+    if (mode === "edit") loadBrands();
   }, [mode]);
 
   async function loadBrands() {
     setLoadingBrands(true);
     try {
-      const colRef = collection(db, 'liquids');
+      const colRef = collection(db, "liquids");
       const snapshot = await getDocs(colRef);
-      // Зберігаємо унікальні бренди (перший документ бренду)
       const uniqueBrandsMap = new Map<string, LiquidProduct>();
-      snapshot.docs.forEach(doc => {
+      snapshot.docs.forEach((doc) => {
         const data = doc.data() as LiquidProduct;
         if (!uniqueBrandsMap.has(data.brand)) {
-          uniqueBrandsMap.set(data.brand, { ...data, id: doc.id });  // <-- змінив порядок
+          uniqueBrandsMap.set(data.brand, { ...data, id: doc.id });
         }
       });
-
       setBrands(Array.from(uniqueBrandsMap.values()));
     } catch (err) {
-      console.error('Помилка завантаження брендів:', err);
-      alert('Помилка завантаження брендів');
+      console.error("Помилка завантаження брендів:", err);
+      alert("Помилка завантаження брендів");
     }
     setLoadingBrands(false);
   }
 
-  // Обробка вибору бренду для редагування
   function onSelectBrand(brand: LiquidProduct) {
     setSelectedBrand(brand);
   }
 
-  // Повернутись до вибору режиму
   function onBackToChoose() {
-    setMode('choose');
+    setMode("choose");
     setSelectedBrand(null);
   }
 
-  // Після збереження у ArrivalForm повернутись до вибору режиму
-
-  // ...
-
   async function onSaveComplete() {
-    console.log("log");
-
     try {
       const newTotal = await getRemainingTotal();
-
-      const logRef = doc(db, 'seller_logs', 'current');
+      const logRef = doc(db, "seller_logs", "current");
       const logSnap = await getDoc(logRef);
-      const existing = logSnap.exists() ? logSnap.data() : {
-        cash: 0,
-        card: 0,
-        salary: 0,
-        mine: 0,
-      };
+      const existing = logSnap.exists()
+        ? logSnap.data()
+        : { cash: 0, card: 0, salary: 0, mine: 0 };
 
-      const message = '✅ Збережено товар через ArrivalForm';
-
-      await sendReportAndAvailability({
-        total: newTotal,
-        cash: existing.cash,
-        card: existing.card,
-        salary: existing.salary,
-        mine: existing.mine,
-      }, message);
+      await sendReportAndAvailability(
+        {
+          total: newTotal,
+          cash: existing.cash,
+          card: existing.card,
+          salary: existing.salary,
+          mine: existing.mine,
+        },
+        "✅ Збережено товар через ArrivalForm"
+      );
     } catch (err) {
       console.error("Помилка надсилання звіту:", err);
     }
 
     setSelectedBrand(null);
-    setMode('choose');
+    setMode("choose");
   }
 
+  const baseStyle =
+    " min-h-screen px-4 py-6 text-white bg-black space-y-6";
 
-  // --- UI ---
-
-  if (mode === 'choose') {
+  if (mode === "choose") {
     return (
-      <div className="max-w-xl mx-auto p-6 bg-white shadow rounded-md space-y-6 text-center">
-        <h1 className="text-2xl font-bold mb-4">Що бажаєте зробити?</h1>
-        <div className="flex flex-col gap-4">
-          <button
-            className="bg-blue-600 text-white py-3 px-6 rounded hover:bg-blue-700"
-            onClick={() => setMode('new')}
-          >
-            Додати нову рідину
-          </button>
-          <button
-            className="bg-green-600 text-white py-3 px-6 rounded hover:bg-green-700"
-            onClick={() => setMode('edit')}
-          >
-            Додати в існуючий бренд
-          </button>
-        </div>
-      </div>
+      <div className={baseStyle}>
+        <div className="max-w-xl min-h-screen px-4 py-6 space-y-6 mx-auto">
+          <h1 className="text-2xl font-bold text-center">Що бажаєте зробити?</h1>
+          <div className="flex flex-col gap-4">
+            <button
+              className="bg-blue-600 hover:bg-blue-700 py-3 px-6 rounded shadow cursor-pointer ease-in duration-300"
+              onClick={() => setMode("new")}
+            >
+              ➕ Додати нову рідину
+            </button>
+            <button
+              className="bg-green-600 hover:bg-green-700 py-3 px-6 rounded shadoц cursor-pointer ease-in duration-300"
+              onClick={() => setMode("edit")}
+            >
+              🛠️ Додати в існуючий бренд
+            </button>
+            <Link
+              href="/admin"
+              className="inline-block border px-4 py-2 rounded hover:bg-gray-100 hover:text-black duration-300 ease-in"
+            >
+              ← Назад до адмін панелі
+            </Link>
+          </div>
+        </div></div>
     );
   }
 
-  if (mode === 'edit') {
+  if (mode === "edit") {
     if (loadingBrands) {
-      return <p className="text-center mt-10">Завантаження брендів...</p>;
+      return <div className={baseStyle}>Завантаження брендів...</div>;
     }
 
     if (selectedBrand) {
-      // Відкриваємо ArrivalForm з початковими даними для редагування
       return (
-        <div>
+        <div className={baseStyle}>
           <button
             onClick={() => setSelectedBrand(null)}
-            className="mb-4 border px-4 py-2 rounded hover:bg-gray-100"
+            className="mb-4 text-sm underline text-gray-400 hover:text-white"
           >
             ← Назад до списку брендів
           </button>
-
           <ArrivalForm
             initialData={selectedBrand}
             isEditMode={false}
@@ -153,14 +146,14 @@ export default function Page() {
     }
 
     return (
-      <div className="max-w-xl mx-auto p-6 bg-white shadow rounded-md space-y-4">
-        <h2 className="text-xl font-bold mb-4">Оберіть бренд для редагування</h2>
+      <div className={baseStyle}>
+        <h2 className="text-xl font-bold">Оберіть бренд для редагування</h2>
         {brands.length === 0 && <p>Брендів не знайдено</p>}
         <ul className="space-y-2">
           {brands.map((brand) => (
             <li
               key={brand.id}
-              className="border p-3 rounded cursor-pointer hover:bg-gray-50"
+              className="border border-gray-600 p-3 rounded hover:bg-gray-800 cursor-pointer"
               onClick={() => onSelectBrand(brand)}
             >
               {brand.brand}
@@ -169,7 +162,7 @@ export default function Page() {
         </ul>
         <button
           onClick={onBackToChoose}
-          className="mt-6 border px-4 py-2 rounded hover:bg-gray-100"
+          className="mt-6 underline text-sm text-gray-400 hover:text-white"
         >
           ← Назад
         </button>
@@ -177,20 +170,16 @@ export default function Page() {
     );
   }
 
-  if (mode === 'new') {
-    // Тут рендеримо звичайний ArrivalForm для додавання нового товару
+  if (mode === "new") {
     return (
-      <div>
+      <div className={baseStyle}>
         <button
           onClick={onBackToChoose}
-          className="mb-4 border px-4 py-2 rounded hover:bg-gray-100"
+          className="mb-4 text-sm underline text-gray-400 hover:text-white"
         >
           ← Назад
         </button>
-
-        <ArrivalForm
-          onSaveComplete={onSaveComplete}
-        />
+        <ArrivalForm onSaveComplete={onSaveComplete} />
       </div>
     );
   }

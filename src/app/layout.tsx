@@ -24,7 +24,7 @@ export default function RootLayout({
      <html lang="uk">
       <body className="bg-white text-black">
         <LoadingProvider>
-          <LoadingSpinner />
+          {/* <LoadingSpinner /> */}
           <PageTransition>
             {children}
           </PageTransition>

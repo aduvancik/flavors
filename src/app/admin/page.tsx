@@ -7,9 +7,11 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
+import { useLoading } from '@/context/LoadingContext';
 
-const TELEGRAM_BOT_TOKEN = '7716741812:AAEF9h_3of02kJ6NsBxrRk0_2b3z7e58oHA';
-const TELEGRAM_CHAT_ID = '-1002893695048';
+const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN!;
+const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID!;
+
 
 async function sendTelegramMessage(text: string) {
   await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -30,9 +32,13 @@ export default function AdminDashboard() {
   const [form, setForm] = useState({ total: '', cash: '', card: '', salary: '', mine: '' });
   const [amount, setAmount] = useState('');
   const router = useRouter();
+  const { isLoading, setLoading } = useLoading();
+
+
 
   useEffect(() => {
     const fetch = async () => {
+      setLoading(true); // start loading
       const ref = doc(db, 'seller_logs', 'current');
       const snap = await getDoc(ref);
 
@@ -58,9 +64,11 @@ export default function AdminDashboard() {
           mine: '0',
         });
       }
+      setLoading(false); // end loading
     };
     fetch();
   }, []);
+
 
   const sendReportAndAvailability = async (newData: any, operation: string) => {
     const snapshot = await getDocs(collection(db, 'liquids'));
@@ -186,127 +194,153 @@ export default function AdminDashboard() {
     });
   };
 
-  if (!log) return <LoadingSpinner />;
+  if (isLoading || !log) return <LoadingSpinner />;
+
+
+
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg space-y-6">
-      <h2 className="text-3xl font-extrabold text-gray-800 mb-4 border-b pb-2">📊 Адмін панель</h2>
-
-      <nav className="flex flex-wrap gap-3 mb-6">
-        <Link href="/admin/arrival" className="bg-blue-600 hover:bg-blue-700 transition text-white px-5 py-3 rounded-lg shadow">
-          📦 Прихід
-        </Link>
-        <Link href="/admin/products" className="bg-green-600 hover:bg-green-700 transition text-white px-5 py-3 rounded-lg shadow">
-          🔍 Перевірка товарів
-        </Link>
-        <Link href="/admin/discard" className="bg-red-600 hover:bg-red-700 transition text-white px-5 py-3 rounded-lg shadow">
-          🗑️ Списати товар
-        </Link>
-        <button
-          onClick={() => router.push('/admin/stats')}
-          className="bg-purple-700 hover:bg-purple-800 transition text-white px-5 py-3 rounded-lg shadow"
-        >
-          📈 Статистика
-        </button>
-      </nav>
-
-      {editMode ? (
-        <form className="space-y-4 bg-gray-50 p-4 rounded-md shadow-inner">
-          {['total', 'cash', 'card', 'salary', 'mine'].map((key) => (
-            <div key={key}>
-              <label className="block mb-1 text-gray-700 capitalize font-semibold">{key}</label>
-              <input
-                type="number"
-                value={form[key as keyof typeof form]}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                placeholder={key}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-            </div>
-          ))}
+    <>
+      <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg space-y-6">
+        <h2 className="text-3xl font-extrabold text-gray-800 mb-4 border-b pb-2">📊 Адмін панель</h2>
+        <nav className="flex flex-wrap gap-3 mb-6">
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              withLoader('save', handleSave);
+            onClick={() => {
+              setLoading(true);
+              router.push('/admin/arrival');
             }}
-            disabled={loadingButton === 'save'}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 rounded-md font-semibold transition"
+            className="bg-blue-600 hover:bg-blue-700 transition text-white px-5 py-3 rounded-lg shadow"
           >
-            {loadingButton === 'save' ? '💾 Збереження...' : '💾 Зберегти'}
+            📦 Прихід
           </button>
-        </form>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 text-gray-700 text-lg font-medium">
-          <div className="bg-gray-50 p-4 rounded shadow">{`Загальний товар (залишок): ${log.total} грн`}</div>
-          <div className="bg-gray-50 p-4 rounded shadow">{`Готівка: ${log.cash} грн`}</div>
-          <div className="bg-gray-50 p-4 rounded shadow">{`Карта: ${log.card} грн`}</div>
-          <div className="bg-gray-50 p-4 rounded shadow">{`Загальна сума: ${log.cash + log.card} грн`}</div>
-          <div className="bg-gray-50 p-4 rounded shadow">{`ЗП продавця: ${log.salary} грн`}</div>
-          <div className="bg-gray-50 p-4 rounded shadow">{`Моє: ${log.mine} грн`}</div>
-        </div>
-      )}
+          <button
+            onClick={() => {
+              setLoading(true);
+              router.push('/admin/products');
+            }}
+            className="bg-green-600 hover:bg-green-700 transition text-white px-5 py-3 rounded-lg shadow"
+          >
+            🔍 Перевірка товарів
+          </button>
 
-      <button
-        onClick={() => setEditMode(!editMode)}
-        className="text-blue-600 hover:text-blue-800 font-semibold underline transition"
-      >
-        {editMode ? 'Скасувати редагування' : '✏️ Редагувати дані'}
-      </button>
+          <button
+            onClick={() => {
+              setLoading(true);
+              router.push('/admin/discard');
+            }}
+            className="bg-red-600 hover:bg-red-700 transition text-white px-5 py-3 rounded-lg shadow"
+          >
+            🗑️ Списати товар
+          </button>
 
-      <section className="border-t pt-6 space-y-4">
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">💸 Операції</h3>
-        <input
-          type="number"
-          placeholder="Сума"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-        />
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
           <button
-            onClick={() => withLoader('mine', () => handlePay('mine'))}
-            disabled={loadingButton === 'mine'}
-            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+            onClick={() => {
+              setLoading(true);
+              router.push('/admin/stats');
+            }}
+            className="bg-purple-700 hover:bg-purple-800 transition text-white px-5 py-3 rounded-lg shadow"
           >
-            {loadingButton === 'mine' ? '⏳...' : 'Видати собі'}
+            📈 Статистика
           </button>
-          <button
-            onClick={() => withLoader('salary', () => handlePay('salary'))}
-            disabled={loadingButton === 'salary'}
-            className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
-          >
-            {loadingButton === 'salary' ? '⏳...' : 'Видати продавцю'}
-          </button>
-          <button
-            onClick={() => withLoader('add-cash', () => handleCashChange('add', 'cash'))}
-            disabled={loadingButton === 'add-cash'}
-            className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
-          >
-            {loadingButton === 'add-cash' ? '⏳...' : 'Додати готівку'}
-          </button>
-          <button
-            onClick={() => withLoader('remove-cash', () => handleCashChange('remove', 'cash'))}
-            disabled={loadingButton === 'remove-cash'}
-            className="bg-blue-800 hover:bg-blue-900 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
-          >
-            {loadingButton === 'remove-cash' ? '⏳...' : 'Зняти готівку'}
-          </button>
-          <button
-            onClick={() => withLoader('add-card', () => handleCashChange('add', 'card'))}
-            disabled={loadingButton === 'add-card'}
-            className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
-          >
-            {loadingButton === 'add-card' ? '⏳...' : 'Додати карту'}
-          </button>
-          <button
-            onClick={() => withLoader('remove-card', () => handleCashChange('remove', 'card'))}
-            disabled={loadingButton === 'remove-card'}
-            className="bg-purple-800 hover:bg-purple-900 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
-          >
-            {loadingButton === 'remove-card' ? '⏳...' : 'Зняти карту'}
-          </button>
-        </div>
-      </section>
-    </div>
+
+        </nav>
+
+        {editMode ? (
+          <form className="space-y-4 bg-gray-50 p-4 rounded-md shadow-inner">
+            {['total', 'cash', 'card', 'salary', 'mine'].map((key) => (
+              <div key={key}>
+                <label className="block mb-1 text-gray-700 capitalize font-semibold">{key}</label>
+                <input
+                  type="number"
+                  value={form[key as keyof typeof form]}
+                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  placeholder={key}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+              </div>
+            ))}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                withLoader('save', handleSave);
+              }}
+              disabled={loadingButton === 'save'}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 rounded-md font-semibold transition"
+            >
+              {loadingButton === 'save' ? '💾 Збереження...' : '💾 Зберегти'}
+            </button>
+          </form>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 text-gray-700 text-lg font-medium">
+            <div className="bg-gray-50 p-4 rounded shadow">{`Загальний товар (залишок): ${log.total} грн`}</div>
+            <div className="bg-gray-50 p-4 rounded shadow">{`Готівка: ${log.cash} грн`}</div>
+            <div className="bg-gray-50 p-4 rounded shadow">{`Карта: ${log.card} грн`}</div>
+            <div className="bg-gray-50 p-4 rounded shadow">{`Загальна сума: ${log.cash + log.card} грн`}</div>
+            <div className="bg-gray-50 p-4 rounded shadow">{`ЗП продавця: ${log.salary} грн`}</div>
+            <div className="bg-gray-50 p-4 rounded shadow">{`Моє: ${log.mine} грн`}</div>
+          </div>
+        )}
+
+        <button
+          onClick={() => setEditMode(!editMode)}
+          className="text-blue-600 hover:text-blue-800 font-semibold underline transition"
+        >
+          {editMode ? 'Скасувати редагування' : '✏️ Редагувати дані'}
+        </button>
+
+        <section className="border-t pt-6 space-y-4">
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">💸 Операції</h3>
+          <input
+            type="number"
+            placeholder="Сума"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            <button
+              onClick={() => withLoader('mine', () => handlePay('mine'))}
+              disabled={loadingButton === 'mine'}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+            >
+              {loadingButton === 'mine' ? '⏳...' : 'Видати собі'}
+            </button>
+            <button
+              onClick={() => withLoader('salary', () => handlePay('salary'))}
+              disabled={loadingButton === 'salary'}
+              className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+            >
+              {loadingButton === 'salary' ? '⏳...' : 'Видати продавцю'}
+            </button>
+            <button
+              onClick={() => withLoader('add-cash', () => handleCashChange('add', 'cash'))}
+              disabled={loadingButton === 'add-cash'}
+              className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+            >
+              {loadingButton === 'add-cash' ? '⏳...' : 'Додати готівку'}
+            </button>
+            <button
+              onClick={() => withLoader('remove-cash', () => handleCashChange('remove', 'cash'))}
+              disabled={loadingButton === 'remove-cash'}
+              className="bg-blue-800 hover:bg-blue-900 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+            >
+              {loadingButton === 'remove-cash' ? '⏳...' : 'Зняти готівку'}
+            </button>
+            <button
+              onClick={() => withLoader('add-card', () => handleCashChange('add', 'card'))}
+              disabled={loadingButton === 'add-card'}
+              className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+            >
+              {loadingButton === 'add-card' ? '⏳...' : 'Додати карту'}
+            </button>
+            <button
+              onClick={() => withLoader('remove-card', () => handleCashChange('remove', 'card'))}
+              disabled={loadingButton === 'remove-card'}
+              className="bg-purple-800 hover:bg-purple-900 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+            >
+              {loadingButton === 'remove-card' ? '⏳...' : 'Зняти карту'}
+            </button>
+          </div>
+        </section>
+      </div>
+    </>
   );
 }
