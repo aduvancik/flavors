@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 
 const TELEGRAM_BOT_TOKEN = '7716741812:AAEF9h_3of02kJ6NsBxrRk0_2b3z7e58oHA';
 const TELEGRAM_CHAT_ID = '-1002893695048';
@@ -17,14 +18,15 @@ async function sendTelegramMessage(text: string) {
     body: JSON.stringify({
       chat_id: TELEGRAM_CHAT_ID,
       text,
-      parse_mode: 'HTML'
-    })
+      parse_mode: 'HTML',
+    }),
   });
 }
 
 export default function AdminDashboard() {
   const [log, setLog] = useState<any>(null);
   const [editMode, setEditMode] = useState(false);
+  const [loadingButton, setLoadingButton] = useState<string | null>(null);
   const [form, setForm] = useState({ total: '', cash: '', card: '', salary: '', mine: '' });
   const [amount, setAmount] = useState('');
   const router = useRouter();
@@ -45,7 +47,6 @@ export default function AdminDashboard() {
           mine: String(data.mine ?? 0),
         });
       } else {
-        // Створити новий документ, якщо він відсутній
         const emptyData = { total: 0, cash: 0, card: 0, salary: 0, mine: 0 };
         await setDoc(ref, emptyData);
         setLog(emptyData);
@@ -61,14 +62,13 @@ export default function AdminDashboard() {
     fetch();
   }, []);
 
-
   const sendReportAndAvailability = async (newData: any, operation: string) => {
     const snapshot = await getDocs(collection(db, 'liquids'));
     const flavors: string[] = [];
     const emptyFlavors: string[] = [];
     const emptyBrands: string[] = [];
 
-    snapshot.forEach(docSnap => {
+    snapshot.forEach((docSnap) => {
       const data = docSnap.data();
       const brand = data.brand;
       const activeFlavors = (data.flavors || []).filter((f: any) => (f.quantity ?? 0) > 0);
@@ -96,11 +96,10 @@ export default function AdminDashboard() {
 <b>Моє:</b> ${newData.mine} грн`;
 
     const flavorList = flavors.length
-      ? `<b>📦 Актуальна наявність рідин:</b>
-` + flavors.join('\n')
+      ? `<b>📦 Актуальна наявність рідин:</b>\n` + flavors.join('\n')
       : `<b>УВАГА:</b> Усі рідини закінчились.`;
 
-    const disappearanceList = [...emptyBrands.map(b => `Бренд зник: ${b}`), ...emptyFlavors.map(f => `Смак зник: ${f}`)].join('\n');
+    const disappearanceList = [...emptyBrands.map((b) => `Бренд зник: ${b}`), ...emptyFlavors.map((f) => `Смак зник: ${f}`)].join('\n');
 
     await sendTelegramMessage(reportMessage);
     await sendTelegramMessage(flavorList);
@@ -109,10 +108,16 @@ export default function AdminDashboard() {
     }
   };
 
+  const withLoader = async (key: string, fn: () => Promise<void>): Promise<void> => {
+    setLoadingButton(key);
+    try {
+      await fn();
+    } finally {
+      setLoadingButton(null);
+    }
+  };
 
-
-
-  const updateLog = async (newData: any, operation = 'Оновлення даних') => {
+  const updateLog = async (newData: any, operation = 'Оновлення даних'): Promise<void> => {
     const ref = doc(db, 'seller_logs', 'current');
     await setDoc(ref, newData);
     setLog(newData);
@@ -126,30 +131,37 @@ export default function AdminDashboard() {
     await sendReportAndAvailability(newData, operation);
   };
 
-  const confirmAndExecute = (message: string, callback: () => void) => {
+  const confirmAndExecute = async (message: string, callback: () => Promise<void>): Promise<void> => {
     if (confirm(message)) {
-      callback();
+      await callback();
     }
   };
 
-  const handleSave = () => {
-    confirmAndExecute('Зберегти зміни?', async () => {
-      await updateLog({
-        total: Number(form.total),
-        cash: Number(form.cash),
-        card: Number(form.card),
-        salary: Number(form.salary),
-        mine: Number(form.mine)
-      }, '✏️ Редагування даних');
+
+  const handleSave = async (): Promise<void> => {
+    await confirmAndExecute('Зберегти зміни?', async () => {
+      await updateLog(
+        {
+          total: Number(form.total),
+          cash: Number(form.cash),
+          card: Number(form.card),
+          salary: Number(form.salary),
+          mine: Number(form.mine),
+        },
+        '✏️ Редагування даних',
+      );
       toast.success('Дані оновлено');
       setEditMode(false);
     });
   };
 
-  const handlePay = (type: 'mine' | 'salary') => {
+  const handlePay = async (type: 'mine' | 'salary'): Promise<void> => {
     const num = Number(amount);
-    if (!num || num <= 0) return toast.error('Некоректна сума');
-    confirmAndExecute(`Видати ${num} грн ${type === 'mine' ? 'собі' : 'продавцю'}?`, async () => {
+    if (!num || num <= 0) {
+      toast.error('Некоректна сума');
+      return;
+    }
+    await confirmAndExecute(`Видати ${num} грн ${type === 'mine' ? 'собі' : 'продавцю'}?`, async () => {
       const updated = { ...log, [type]: log[type] - num };
       await updateLog(updated, `💵 Видано ${num} грн ${type === 'mine' ? 'собі' : 'продавцю'}`);
       toast.success('ЗП видано');
@@ -157,13 +169,16 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleCashChange = (type: 'add' | 'remove', field: 'cash' | 'card') => {
+  const handleCashChange = async (type: 'add' | 'remove', field: 'cash' | 'card'): Promise<void> => {
     const num = Number(amount);
-    if (!num || num <= 0) return toast.error('Некоректна сума');
-    confirmAndExecute(`${type === 'add' ? 'Додати' : 'Зняти'} ${num} грн ${field === 'cash' ? 'готівки' : 'карти'}?`, async () => {
+    if (!num || num <= 0) {
+      toast.error('Некоректна сума');
+      return;
+    }
+    await confirmAndExecute(`${type === 'add' ? 'Додати' : 'Зняти'} ${num} грн ${field === 'cash' ? 'готівки' : 'карти'}?`, async () => {
       const updated = {
         ...log,
-        [field]: type === 'add' ? log[field] + num : log[field] - num
+        [field]: type === 'add' ? log[field] + num : log[field] - num,
       };
       await updateLog(updated, `${type === 'add' ? '➕ Додано' : '➖ Знято'} ${num} грн ${field === 'cash' ? 'готівки' : 'карти'}`);
       toast.success('Оновлено');
@@ -171,65 +186,127 @@ export default function AdminDashboard() {
     });
   };
 
-  if (!log) return <p>Завантаження...</p>;
+  if (!log) return <LoadingSpinner />;
 
   return (
-    <div className="space-y-4 max-w-xl mx-auto p-4">
-      <h2 className="text-2xl font-bold">📊 Адмін панель</h2>
+    <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg space-y-6">
+      <h2 className="text-3xl font-extrabold text-gray-800 mb-4 border-b pb-2">📊 Адмін панель</h2>
 
-      <div className="flex gap-2 flex-wrap">
-        <Link href="/admin/arrival" className="bg-blue-600 text-white px-4 py-2 rounded">📦 Прихід</Link>
-        <Link href="/admin/products" className="bg-green-600 text-white px-4 py-2 rounded">🔍 Перевірка товарів</Link>
-        <Link href="/admin/discard" className="bg-red-600 text-white px-4 py-2 rounded">🗑️ Списати товар</Link>
-        <button onClick={() => router.push('/admin/stats')} className="bg-purple-700 text-white px-4 py-2 rounded">📈 Статистика</button>
-      </div>
+      <nav className="flex flex-wrap gap-3 mb-6">
+        <Link href="/admin/arrival" className="bg-blue-600 hover:bg-blue-700 transition text-white px-5 py-3 rounded-lg shadow">
+          📦 Прихід
+        </Link>
+        <Link href="/admin/products" className="bg-green-600 hover:bg-green-700 transition text-white px-5 py-3 rounded-lg shadow">
+          🔍 Перевірка товарів
+        </Link>
+        <Link href="/admin/discard" className="bg-red-600 hover:bg-red-700 transition text-white px-5 py-3 rounded-lg shadow">
+          🗑️ Списати товар
+        </Link>
+        <button
+          onClick={() => router.push('/admin/stats')}
+          className="bg-purple-700 hover:bg-purple-800 transition text-white px-5 py-3 rounded-lg shadow"
+        >
+          📈 Статистика
+        </button>
+      </nav>
 
       {editMode ? (
-        <div className="space-y-2">
+        <form className="space-y-4 bg-gray-50 p-4 rounded-md shadow-inner">
           {['total', 'cash', 'card', 'salary', 'mine'].map((key) => (
-            <input
-              key={key}
-              value={form[key as keyof typeof form]}
-              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              placeholder={key}
-              className="border p-2 w-full"
-            />
+            <div key={key}>
+              <label className="block mb-1 text-gray-700 capitalize font-semibold">{key}</label>
+              <input
+                type="number"
+                value={form[key as keyof typeof form]}
+                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                placeholder={key}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+            </div>
           ))}
-          <button onClick={handleSave} className="bg-blue-600 text-white py-2 px-4 rounded">💾 Зберегти</button>
-        </div>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              withLoader('save', handleSave);
+            }}
+            disabled={loadingButton === 'save'}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 rounded-md font-semibold transition"
+          >
+            {loadingButton === 'save' ? '💾 Збереження...' : '💾 Зберегти'}
+          </button>
+        </form>
       ) : (
-        <div className="space-y-1">
-          <p>Загальний товар (залишок): {log.total} грн</p>
-          <p>Готівка: {log.cash} грн</p>
-          <p>Карта: {log.card} грн</p>
-          <p>Загальна сума: {log.cash + log.card} грн</p>
-          <p>ЗП продавця: {log.salary} грн</p>
-          <p>Моє: {log.mine} грн</p>
+        <div className="grid grid-cols-2 gap-4 text-gray-700 text-lg font-medium">
+          <div className="bg-gray-50 p-4 rounded shadow">{`Загальний товар (залишок): ${log.total} грн`}</div>
+          <div className="bg-gray-50 p-4 rounded shadow">{`Готівка: ${log.cash} грн`}</div>
+          <div className="bg-gray-50 p-4 rounded shadow">{`Карта: ${log.card} грн`}</div>
+          <div className="bg-gray-50 p-4 rounded shadow">{`Загальна сума: ${log.cash + log.card} грн`}</div>
+          <div className="bg-gray-50 p-4 rounded shadow">{`ЗП продавця: ${log.salary} грн`}</div>
+          <div className="bg-gray-50 p-4 rounded shadow">{`Моє: ${log.mine} грн`}</div>
         </div>
       )}
 
-      <button onClick={() => setEditMode(!editMode)} className="text-blue-600 underline">
+      <button
+        onClick={() => setEditMode(!editMode)}
+        className="text-blue-600 hover:text-blue-800 font-semibold underline transition"
+      >
         {editMode ? 'Скасувати редагування' : '✏️ Редагувати дані'}
       </button>
 
-      <div className="border-t pt-4 mt-4 space-y-2">
-        <h3 className="font-semibold">💸 Операції</h3>
+      <section className="border-t pt-6 space-y-4">
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">💸 Операції</h3>
         <input
           type="number"
           placeholder="Сума"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="border p-2 w-full"
+          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
         />
-        <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => handlePay('mine')} className="bg-green-600 text-white py-2 px-4 rounded">Видати собі</button>
-          <button onClick={() => handlePay('salary')} className="bg-yellow-600 text-white py-2 px-4 rounded">Видати продавцю</button>
-          <button onClick={() => handleCashChange('add', 'cash')} className="bg-blue-500 text-white py-2 px-4 rounded">Додати готівку</button>
-          <button onClick={() => handleCashChange('remove', 'cash')} className="bg-blue-800 text-white py-2 px-4 rounded">Зняти готівку</button>
-          <button onClick={() => handleCashChange('add', 'card')} className="bg-purple-500 text-white py-2 px-4 rounded">Додати карту</button>
-          <button onClick={() => handleCashChange('remove', 'card')} className="bg-purple-800 text-white py-2 px-4 rounded">Зняти карту</button>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          <button
+            onClick={() => withLoader('mine', () => handlePay('mine'))}
+            disabled={loadingButton === 'mine'}
+            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+          >
+            {loadingButton === 'mine' ? '⏳...' : 'Видати собі'}
+          </button>
+          <button
+            onClick={() => withLoader('salary', () => handlePay('salary'))}
+            disabled={loadingButton === 'salary'}
+            className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+          >
+            {loadingButton === 'salary' ? '⏳...' : 'Видати продавцю'}
+          </button>
+          <button
+            onClick={() => withLoader('add-cash', () => handleCashChange('add', 'cash'))}
+            disabled={loadingButton === 'add-cash'}
+            className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+          >
+            {loadingButton === 'add-cash' ? '⏳...' : 'Додати готівку'}
+          </button>
+          <button
+            onClick={() => withLoader('remove-cash', () => handleCashChange('remove', 'cash'))}
+            disabled={loadingButton === 'remove-cash'}
+            className="bg-blue-800 hover:bg-blue-900 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+          >
+            {loadingButton === 'remove-cash' ? '⏳...' : 'Зняти готівку'}
+          </button>
+          <button
+            onClick={() => withLoader('add-card', () => handleCashChange('add', 'card'))}
+            disabled={loadingButton === 'add-card'}
+            className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+          >
+            {loadingButton === 'add-card' ? '⏳...' : 'Додати карту'}
+          </button>
+          <button
+            onClick={() => withLoader('remove-card', () => handleCashChange('remove', 'card'))}
+            disabled={loadingButton === 'remove-card'}
+            className="bg-purple-800 hover:bg-purple-900 disabled:opacity-50 text-white py-2 rounded shadow transition font-semibold"
+          >
+            {loadingButton === 'remove-card' ? '⏳...' : 'Зняти карту'}
+          </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

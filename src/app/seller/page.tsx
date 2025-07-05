@@ -5,8 +5,11 @@ import { collection, doc, getDocs, updateDoc, getDoc, setDoc, increment, serverT
 import { getRemainingTotal, sendAvailabilityAndSellerLog } from '@/lib/updateLog';
 import { db } from '@/lib/firebase';
 
-const TYPE_OPTIONS = ['liquids', 'cartridges', 'nicoboosters'];
-
+const TYPE_OPTIONS = [
+  { key: 'liquids', label: 'Рідини', image: '/liquids.jpg' },
+  { key: 'cartridges', label: 'Картриджі', image: '/cartridges.jpg' },
+  { key: 'nicoboosters', label: 'Нікобустери', image: '/nicoboosters.jpg' },
+];
 export default function SellerPanel() {
   const [step, setStep] = useState<'type' | 'brand' | 'flavor'>('type');
   const [selectedType, setSelectedType] = useState('');
@@ -16,6 +19,16 @@ export default function SellerPanel() {
   const [paymentType, setPaymentType] = useState<'cash' | 'card' | 'split' | ''>('');
   const [splitPayment, setSplitPayment] = useState({ cash: '', card: '' });
   const [log, setLog] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSellWithLoader = async () => {
+    setIsLoading(true);
+    try {
+      await handleSell(); // твоя існуюча функція
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedType) {
@@ -230,19 +243,27 @@ export default function SellerPanel() {
   return (
     <div className="p-4 space-y-4">
       {step === 'type' && (
-        <div>
-          <h2 className="text-lg font-semibold">Оберіть тип товару:</h2>
-          <div className="flex gap-2">
-            {TYPE_OPTIONS.map(type => (
+        <div className="w-full max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold mb-6 text-center animate-fade-in">Оберіть тип товару</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-fade-in">
+            {TYPE_OPTIONS.map((type) => (
               <button
-                key={type}
+                key={type.key}
                 onClick={() => {
-                  setSelectedType(type);
+                  setSelectedType(type.key);
                   setStep('brand');
                 }}
-                className="bg-gray-200 px-4 py-2 rounded"
+                className="relative group bg-gray-200 rounded-xl shadow-md overflow-hidden h-48 hover:scale-105 transition-transform duration-300"
               >
-                {type}
+                <img
+                  src={type.image}
+                  alt={type.label}
+                  className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:opacity-50 transition-opacity duration-300"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-0" />
+                <div className="relative z-10 flex items-center justify-center h-full">
+                  <span className="text-xl font-semibold text-white tracking-wide">{type.label}</span>
+                </div>
               </button>
             ))}
           </div>
@@ -250,49 +271,97 @@ export default function SellerPanel() {
       )}
 
       {step === 'brand' && (
-        <div>
-          <button onClick={() => setStep('type')} className="text-blue-600">← Назад</button>
-          <h2 className="mt-4 font-semibold">Оберіть бренд:</h2>
-          {brands.filter(b => b.flavors?.length).map(b => (
-            <button
-              key={b.brand}
-              onClick={() => {
-                setSelectedBrand(b);
-                setStep('flavor');
-              }}
-              className="block bg-gray-100 p-2 mt-2 rounded text-left w-full"
-            >
-              {b.brand}
-            </button>
-          ))}
+        <div className="w-full max-w-5xl mx-auto animate-fade-in">
+          <button
+            onClick={() => setStep('type')}
+            className="inline-flex items-center gap-1 text-black font-medium border border-black px-3 py-1 rounded hover:bg-black hover:text-white transition-colors mb-4"
+          >
+            ← Назад
+          </button>
+
+          <h2 className="text-2xl font-bold mb-6 text-center">Оберіть бренд</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {brands
+              .filter((b) => b.flavors?.length)
+              .map((b) => (
+                <button
+                  key={b.brand}
+                  onClick={() => {
+                    setSelectedBrand(b);
+                    setStep('flavor');
+                  }}
+                  className="relative group rounded-xl shadow-md overflow-hidden h-48 hover:scale-105 transition-transform duration-300"
+                >
+                  {/* Картинка з Firebase */}
+                  {b.imageUrl && (
+                    <img
+                      src={b.imageUrl}
+                      alt={b.brand}
+                      className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-300"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-0" />
+                  <div className="relative z-10 flex items-center justify-center h-full">
+                    <span className="text-xl font-semibold text-white tracking-wide">{b.brand}</span>
+                  </div>
+                </button>
+              ))}
+          </div>
         </div>
       )}
 
+
       {step === 'flavor' && selectedBrand && (
-        <div>
-          <button onClick={() => setStep('brand')} className="text-blue-600">← Назад</button>
-          <h2 className="mt-4 font-semibold">Оберіть смак:</h2>
+        <div className="max-w-md mx-auto p-4 bg-white rounded-md shadow-md">
+          <button
+            onClick={() => setStep('brand')}
+            className="inline-flex items-center gap-1 text-black font-medium border border-black px-3 py-1 rounded hover:bg-black hover:text-white transition-colors mb-4"
+          >
+            ← Назад
+          </button>
+
+          <h2 className="mt-2 mb-4 text-xl font-semibold text-black">Оберіть смак:</h2>
           {selectedBrand.flavors.map((fl: any, idx: number) => {
-            const alreadyAdded = cart.filter(c => c.name === fl.name && c.productId === selectedBrand.id).length;
+            const alreadyAdded = cart.filter(
+              (c) => c.name === fl.name && c.productId === selectedBrand.id
+            ).length;
             const remaining = fl.quantity - alreadyAdded;
 
             return (
-              <div key={idx} className="border p-2 rounded mt-2">
-                <div><strong>{fl.name}</strong></div>
-                <div>К-сть: {fl.quantity} (залишилось: {remaining})</div>
-                <div>Ціна продажу: {selectedBrand.salePrice} грн</div>
-                <div>ЗП продавця: {selectedBrand.sellerAmount} грн</div>
+              <div
+                key={idx}
+                className="border border-gray-700 p-4 rounded-md mt-3 hover:bg-gray-100 cursor-pointer transition-colors"
+              >
+                <div className="text-lg font-semibold text-black">{fl.name}</div>
+                <div className="text-gray-800 mt-1">
+                  К-сть: <span className="font-medium">{fl.quantity}</span> (залишилось:{' '}
+                  <span className={remaining > 0 ? "text-black" : "text-gray-400 font-semibold"}>
+                    {remaining}
+                  </span>
+                  )
+                </div>
+                <div className="text-gray-800 mt-1">
+                  Ціна продажу: <span className="font-medium">{selectedBrand.salePrice} грн</span>
+                </div>
+                <div className="text-gray-800">
+                  ЗП продавця: <span className="font-medium">{selectedBrand.sellerAmount} грн</span>
+                </div>
                 <button
                   disabled={remaining < 1}
                   onClick={() => {
-                    setCart([...cart, {
-                      name: fl.name,
-                      productId: selectedBrand.id,
-                      salePrice: selectedBrand.salePrice,
-                      sellerAmount: selectedBrand.sellerAmount,
-                    }]);
+                    setCart([
+                      ...cart,
+                      {
+                        name: fl.name,
+                        productId: selectedBrand.id,
+                        salePrice: selectedBrand.salePrice,
+                        sellerAmount: selectedBrand.sellerAmount,
+                      },
+                    ]);
                   }}
-                  className="mt-2 bg-green-500 text-white px-3 py-1 rounded disabled:opacity-50"
+                  className={`mt-3 w-full py-2 rounded-md border border-black text-black font-semibold 
+              disabled:text-gray-400 disabled:border-gray-400 disabled:cursor-not-allowed 
+              hover:bg-black hover:text-white transition-colors`}
                 >
                   Додати до кошика
                 </button>
@@ -302,64 +371,143 @@ export default function SellerPanel() {
         </div>
       )}
 
-      {cart.length > 0 && (
-        <div className="border-t pt-4">
-          <h3 className="font-bold">Кошик:</h3>
-          {cart.map((item, idx) => (
-            <div key={idx} className="flex justify-between border-b py-1">
-              <span>{item.name}</span>
-              <span>{item.salePrice} грн</span>
-            </div>
-          ))}
-          <div className="mt-2">
-            <div><strong>Сума:</strong> {totalCartPrice} грн</div>
-            <div><strong>ЗП продавця:</strong> {sellerSalary} грн</div>
-            <div><strong>Моє:</strong> {myEarnings} грн</div>
 
-            <div className="mt-2 space-y-1">
-              <div>
-                <label>
-                  <input type="radio" name="pay" checked={paymentType === 'cash'} onChange={() => setPaymentType('cash')} /> Готівка
-                </label>
+
+      {cart.length > 0 && (
+        <div className="mt-8">
+          <div className="max-w-md mx-auto p-5 bg-white border border-gray-300 rounded-xl shadow-md text-black space-y-4">
+            <h3 className="text-xl font-bold border-b pb-2">🛒 Кошик</h3>
+
+            {cart.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex justify-between items-center py-2 border-b last:border-b-0"
+              >
+                <div className="space-y-0.5">
+                  <div className="font-medium">{item.name}</div>
+                  <div className="text-sm text-gray-600">{item.salePrice} грн</div>
+                </div>
+                <button
+                  onClick={() => {
+                    const updated = [...cart];
+                    updated.splice(idx, 1);
+                    setCart(updated);
+                  }}
+                  className="text-gray-400 hover:text-black text-lg leading-none px-2 transition"
+                  aria-label="Видалити"
+                >
+                  ×
+                </button>
               </div>
-              <div>
-                <label>
-                  <input type="radio" name="pay" checked={paymentType === 'card'} onChange={() => setPaymentType('card')} /> Карта
-                </label>
+            ))}
+
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between"><span className="font-semibold">Сума:</span> <span>{totalCartPrice} грн</span></div>
+              <div className="flex justify-between"><span>ЗП продавця:</span> <span>{sellerSalary} грн</span></div>
+              <div className="flex justify-between"><span>Моє:</span> <span>{myEarnings} грн</span></div>
+            </div>
+            <div className="pt-2 space-y-2 text-sm">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="pay-cash"
+                  name="pay"
+                  checked={paymentType === 'cash'}
+                  onChange={() => setPaymentType('cash')}
+                  className="cursor-pointer"
+                />
+                <label htmlFor="pay-cash" className="cursor-pointer">Готівка</label>
               </div>
-              <div>
-                <label>
-                  <input type="radio" name="pay" checked={paymentType === 'split'} onChange={() => setPaymentType('split')} /> Розділити
-                </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="pay-card"
+                  name="pay"
+                  checked={paymentType === 'card'}
+                  onChange={() => setPaymentType('card')}
+                  className="cursor-pointer"
+                />
+                <label htmlFor="pay-card" className="cursor-pointer">Карта</label>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="pay-split"
+                    name="pay"
+                    checked={paymentType === 'split'}
+                    onChange={() => setPaymentType('split')}
+                    className="cursor-pointer"
+                  />
+                  <label htmlFor="pay-split" className="cursor-pointer">Розділити</label>
+                </div>
+
                 {paymentType === 'split' && (
-                  <div className="mt-1">
+                  <div className="flex gap-2 mt-2">
                     <input
                       type="number"
                       placeholder="Готівка"
                       value={splitPayment.cash}
-                      onChange={e => setSplitPayment({ ...splitPayment, cash: e.target.value })}
-                      className="border p-1 mr-2"
+                      onChange={(e) => setSplitPayment({ ...splitPayment, cash: e.target.value })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
                     />
                     <input
                       type="number"
                       placeholder="Карта"
                       value={splitPayment.card}
-                      onChange={e => setSplitPayment({ ...splitPayment, card: e.target.value })}
-                      className="border p-1"
+                      onChange={(e) => setSplitPayment({ ...splitPayment, card: e.target.value })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
                     />
                   </div>
                 )}
               </div>
             </div>
 
-            <button onClick={handleSell} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Продано</button>
+
+            <button
+              onClick={handleSellWithLoader}
+              disabled={isLoading}
+              className={`w-full py-2 rounded-md font-semibold border border-black transition-colors ${isLoading
+                ? 'bg-gray-200 text-gray-500 cursor-wait'
+                : 'text-black hover:bg-black hover:text-white'
+                }`}
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <svg
+                    className="animate-spin h-4 w-4 text-black"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    ></path>
+                  </svg>
+                  <span>Обробка...</span>
+                </div>
+              ) : (
+                'Продано'
+              )}
+            </button>
+
 
             {log && (
-              <div className="mt-4 p-2 bg-gray-100 rounded text-sm">
-                <div><strong>Загальний товар (залишок):</strong> {log.total} грн</div>
+              <div className="mt-4 bg-gray-50 border border-gray-300 rounded-lg p-3 text-sm space-y-1">
+                <div><strong>Залишок товару:</strong> {log.total} грн</div>
                 <div><strong>Готівка:</strong> {log.cash} грн</div>
                 <div><strong>Карта:</strong> {log.card} грн</div>
-                <div><strong>Загальна сума:</strong> {log.cash + log.card} грн</div>
+                <div><strong>Сума:</strong> {log.cash + log.card} грн</div>
                 <div><strong>ЗП продавця:</strong> {log.salary} грн</div>
                 <div><strong>Моє:</strong> {log.mine} грн</div>
               </div>
@@ -367,6 +515,8 @@ export default function SellerPanel() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

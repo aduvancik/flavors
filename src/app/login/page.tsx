@@ -34,30 +34,38 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="p-6 flex flex-col gap-4 max-w-sm mx-auto">
-      <h2 className="text-xl font-bold text-center">
-        {role === 'admin' ? 'Вхід як Адміністратор' : role === 'seller' ? 'Вхід як Продавець' : 'Вхід'}
-      </h2>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-        className="border p-2"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Пароль"
-        className="border p-2"
-      />
-      <button
-        onClick={handleLogin}
-        className="bg-blue-600 text-white py-2 px-4 rounded"
-      >
-        Увійти
-      </button>
+    <div className="min-h-screen flex items-center justify-center bg-white text-black px-4">
+      <div className="w-full max-w-sm bg-white border border-black p-6 rounded shadow-lg transition duration-300">
+        <h2 className="text-2xl font-bold text-center mb-6">
+          {role === 'admin'
+            ? 'Вхід як Адміністратор'
+            : role === 'seller'
+              ? 'Вхід як Продавець'
+              : 'Вхід'}
+        </h2>
+
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          className="w-full mb-4 px-4 py-2 border border-black rounded focus:outline-none focus:ring-2 focus:ring-black transition"
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Пароль"
+          className="w-full mb-6 px-4 py-2 border border-black rounded focus:outline-none focus:ring-2 focus:ring-black transition"
+        />
+
+        <button
+          onClick={handleLogin}
+          className="w-full bg-black text-white py-2 rounded hover:bg-white hover:text-black border border-black transition"
+        >
+          Увійти
+        </button>
+      </div>
     </div>
   );
 }
