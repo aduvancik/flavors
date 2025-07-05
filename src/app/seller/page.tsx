@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { collection, doc, getDocs, updateDoc, getDoc, setDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { getRemainingTotal, sendAvailabilityAndSellerLog } from '@/lib/updateLog';
 import { db } from '@/lib/firebase';
-import { getRemainingTotal } from '@/lib/updateLog';
 
 const TYPE_OPTIONS = ['liquids', 'cartridges', 'nicoboosters'];
 
@@ -87,6 +87,7 @@ export default function SellerPanel() {
 
     let cash = 0;
     let card = 0;
+
     if (paymentType === 'cash') cash = totalCartPrice;
     if (paymentType === 'card') card = totalCartPrice;
     if (paymentType === 'split') {
@@ -98,27 +99,97 @@ export default function SellerPanel() {
       }
     }
 
-    // Оновлення кількості товарів у базі
+    const now = new Date();
+    const timestamp = now.toLocaleDateString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    });
+
+    // 🧾 Формування повідомлення
+    let saleMessage = `${timestamp}\nПродаж:\n`;
+
+    const newlyDepleted: string[] = [];
+
     for (const item of cart) {
-      const docRef = doc(db, selectedType, item.productId);
+      const type = item.type || selectedType;
+      const docRef = doc(db, type, item.productId);
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) continue;
+
       const data = docSnap.data();
+      const brand = data.brand || '';
+      const volume = data.volume ? `${data.volume} мл` : '';
+      const name = item.name || '';
 
-      const updatedFlavors = (data.flavors || []).map((f: any) => {
-        if (f.name === item.name) {
-          return { ...f, quantity: Math.max((f.quantity || 0) - 1, 0) };
+      let line = `${brand}`;
+      if (volume) line += ` ${volume}`;
+      if (name) line += ` - ${name}`;
+      saleMessage += `${line}\n`;
+
+      // Оновлення кількості та перевірка на зникнення
+      if (type === 'liquids') {
+        const updatedFlavors: any[] = [];
+
+        for (const f of data.flavors || []) {
+          if (f.name === item.name) {
+            const newQty = Math.max((f.quantity || 0) - 1, 0);
+
+            if (newQty === 0) {
+              const depletedId = `liquids_${item.productId}_${f.name}`;
+              const depletedRef = doc(db, 'depleted_flavors', depletedId);
+              const depletedSnap = await getDoc(depletedRef);
+
+              if (!depletedSnap.exists()) {
+                newlyDepleted.push(`${brand} ${volume} - ${f.name}`);
+                await setDoc(depletedRef, { depletedAt: now });
+              }
+            }
+
+            if (newQty > 0) {
+              updatedFlavors.push({ ...f, quantity: newQty });
+            }
+          } else {
+            updatedFlavors.push(f);
+          }
         }
-        return f;
-      }).filter((f: any) => f.quantity > 0);
 
-      const updatePayload: any = selectedType === 'liquids'
-        ? { flavors: updatedFlavors }
-        : { quantity: Math.max((data.quantity || 0) - 1, 0) };
+        await updateDoc(docRef, { flavors: updatedFlavors });
+      }
+      else {
+        const newQty = Math.max((data.quantity || 0) - 1, 0);
 
-      await updateDoc(docRef, updatePayload);
+        if (newQty === 0) {
+          const depletedId = `${type}_${item.productId}_main`;
+          const depletedRef = doc(db, 'depleted_flavors', depletedId);
+          const depletedSnap = await getDoc(depletedRef);
+          if (!depletedSnap.exists()) {
+            newlyDepleted.push(`${brand}${volume ? ' ' + volume : ''}`);
+            await setDoc(depletedRef, { depletedAt: now });
+          }
+        }
+
+        await updateDoc(docRef, { quantity: newQty });
+      }
     }
 
+
+    // Додаємо рядок з оплатою
+    if (paymentType === 'split') {
+      if (cash > 0 && card > 0) {
+        saleMessage += `${cash} грн готівка + ${card} грн карта = ${cash + card}`;
+      } else if (cash > 0) {
+        saleMessage += `${cash} грн готівка`;
+      } else if (card > 0) {
+        saleMessage += `${card} грн карта`;
+      }
+    } else if (paymentType === 'cash') {
+      saleMessage += `${cash} грн готівка`;
+    } else if (paymentType === 'card') {
+      saleMessage += `${card} грн карта`;
+    }
+
+    // Очистка стану
     setCart([]);
     setPaymentType('');
     setSplitPayment({ cash: '', card: '' });
@@ -127,9 +198,9 @@ export default function SellerPanel() {
 
     await loadBrands();
 
+    // 🔄 Оновлюємо лог
     const remainingTotal = await getRemainingTotal();
 
-    // Оновлення логів продавця
     const logRef = doc(db, 'seller_logs', 'current');
     const logSnap = await getDoc(logRef);
     const existing = logSnap.exists() ? logSnap.data() : {
@@ -151,9 +222,10 @@ export default function SellerPanel() {
     await setDoc(logRef, updated);
     setLog(updated);
 
-    // Оновлення статистики продажів за день
     await updateDailySales(totalCartPrice, sellerSalary);
+    await sendAvailabilityAndSellerLog(saleMessage, newlyDepleted);
   };
+
 
   return (
     <div className="p-4 space-y-4">

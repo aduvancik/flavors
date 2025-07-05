@@ -99,7 +99,7 @@ export async function sendReportAndAvailability(newData: any, operation: string)
   // }
 }
 
-export async function sendAvailabilityAndSellerLog(operation: string) {
+export async function sendAvailabilityAndSellerLog(operation: string, newlyDepleted?: string[]) {
   const snapshot = await getDocs(collection(db, 'liquids'));
 
   // Згрупуємо рідини по бренду
@@ -153,6 +153,14 @@ export async function sendAvailabilityAndSellerLog(operation: string) {
 
   await sendTelegramMessage(sellerLogMessage);
   await sendTelegramMessage(availabilityMessage);
+  if (newlyDepleted?.length) {
+    let depletedMessage = `⚠️ <b>Вичерпано під час продажу:</b>\n`;
+    newlyDepleted.forEach(entry => {
+      depletedMessage += `• ${entry}\n`;
+    });
+    await sendTelegramMessage(depletedMessage);
+  }
+
 }
 
 
@@ -162,3 +170,72 @@ export async function updateLog(newData: any, operation: string) {
   await setDoc(ref, newData);
   await sendReportAndAvailability(newData, operation);
 }
+
+export async function sendSaleSummaryMessage({
+  cart,
+  selectedType,
+  paymentInfo,
+}: {
+  cart: any[];
+  selectedType: string;
+  paymentInfo: { cash: number; card: number };
+}) {
+  const now = new Date();
+  const timestamp = now.toLocaleString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  let message = `<b>${timestamp}</b>\nПродаж ${selectedType === 'liquids' ? 'рідини' : selectedType === 'cartridges' ? 'катриджа' : 'товару'}:\n`;
+
+  const newlyDepleted: string[] = [];
+
+  for (const item of cart) {
+    const docRef = doc(db, selectedType, item.productId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) continue;
+    const data = docSnap.data();
+
+    if (selectedType === 'liquids') {
+      const flavor = (data.flavors || []).find((f: any) => f.name === item.name);
+      if (flavor && (flavor.quantity - 1) === 0) {
+        const depletedId = `${selectedType}_${item.productId}_${flavor.name}`;
+        const depletedRef = doc(db, 'depleted_flavors', depletedId);
+        const depletedSnap = await getDoc(depletedRef);
+        if (!depletedSnap.exists()) {
+          newlyDepleted.push(`${data.brand} ${data.volume} ml ${flavor.name}`);
+          await setDoc(depletedRef, { depletedAt: now });
+        }
+      }
+      message += `${data.brand} ${data.volume} ml ${item.name}\n`;
+    } else {
+      if ((data.quantity - 1) === 0) {
+        const depletedId = `${selectedType}_${item.productId}_main`;
+        const depletedRef = doc(db, 'depleted_flavors', depletedId);
+        const depletedSnap = await getDoc(depletedRef);
+        if (!depletedSnap.exists()) {
+          newlyDepleted.push(`${data.brand} (основний товар)`);
+          await setDoc(depletedRef, { depletedAt: now });
+        }
+      }
+      message += `${data.brand}\n`;
+    }
+  }
+
+  message += `\n${paymentInfo.card} грн карта\n${paymentInfo.cash} грн готівка\n`;
+
+  const total = await getRemainingTotal();
+  message += `\nАктуальна наявність: ${total} грн\n`;
+
+  if (newlyDepleted.length) {
+    message += `\n⚠️ <b>Вичерпано:</b>\n`;
+    newlyDepleted.forEach(entry => {
+      message += `• ${entry}\n`;
+    });
+  }
+
+  await sendTelegramMessage(message);
+}
+
