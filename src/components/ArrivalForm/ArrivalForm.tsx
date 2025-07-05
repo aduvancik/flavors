@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ProductData, { addOrUpdateProduct, uploadImage } from './firebaseUtils';
 import { Flavor } from './FlavorInputs';
 import { getRemainingTotal, sendAvailabilityAndSellerLog } from '@/lib/updateLog';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
 
@@ -118,7 +118,7 @@ export default function ArrivalForm({
         salePrice: parseFloat(salePrice),
         sellerAmount: parseFloat(sellerAmount),
         imageUrl: finalImageUrl,
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
       };
 
       if (type === 'liquids') {
