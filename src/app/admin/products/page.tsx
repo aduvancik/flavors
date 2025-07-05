@@ -18,6 +18,11 @@ const PRODUCT_TYPES = [
 
 type Flavor = { name: string; quantity: number | '' };
 
+type RawFlavor = {
+  name: string;
+  quantity: string | number;
+};
+
 type Product = {
   id: string;
   brand: string;
@@ -66,7 +71,7 @@ export default function ProductsPage() {
           const data = doc.data();
           // Перетворюємо flavors.quantity в число
           if (data.flavors) {
-            data.flavors = data.flavors.map((f: any) => ({
+            data.flavors = data.flavors.map((f: RawFlavor) => ({
               ...f,
               quantity: typeof f.quantity === 'string' ? parseInt(f.quantity, 10) : f.quantity
             }));

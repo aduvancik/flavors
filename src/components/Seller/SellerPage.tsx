@@ -9,12 +9,20 @@ import SummaryLog from './SummaryLog'
 
 type Flavor = { name: string; quantity: number; salePrice: number; sellerAmount: number }
 type BrandItem = { id: string; brand: string; volume: string; flavors: Flavor[] }
+type LogEntry = {
+  date: string;
+  brand: string;
+  flavor: string;
+  salePrice: number;
+  sellerAmount: number;
+};
+
 
 export default function SellerPage() {
   const [products, setProducts] = useState<BrandItem[]>([])
   const [selectedBrand, setSelectedBrand] = useState<BrandItem | null>(null)
   const [selectedFlavor, setSelectedFlavor] = useState<Flavor | null>(null)
-  const [log, setLog] = useState<any[]>([])
+const [log, setLog] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     async function load() {

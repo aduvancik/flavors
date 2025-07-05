@@ -11,11 +11,11 @@ import {
   where,
   getDocs,
   updateDoc,
-  DocumentReference
+  DocumentReference,
+  Timestamp
 } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { doc } from 'firebase/firestore';
-
 
 import { Flavor } from './FlavorInputs';
 
@@ -25,12 +25,11 @@ export default interface ProductData {
   salePrice: number;
   sellerAmount: number;
   imageUrl: string;
-  createdAt: any;
+  createdAt: Timestamp;  // <-- замість any
   volume?: string;
   flavors?: Flavor[];
   quantity?: number;
 }
-
 
 export async function uploadImage(file: File): Promise<string> {
   const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
@@ -64,7 +63,6 @@ export async function addOrUpdateProduct(
         );
 
         if (index !== -1) {
-          // Перетворюємо quantity у число через унарний плюс, який працює і для string, і для number
           const mergedQty = +mergedFlavors[index].quantity;
           const existingQty = +f.quantity;
 
@@ -74,7 +72,6 @@ export async function addOrUpdateProduct(
         }
       }
 
-
       await updateDoc(docRef, { ...productData, flavors: mergedFlavors });
       return 'updated';
     } else {
@@ -82,9 +79,7 @@ export async function addOrUpdateProduct(
       return 'added';
     }
   } else {
-    // Для інших типів або без existingDocId
     await addDoc(colRef, productData);
     return 'added';
   }
 }
-

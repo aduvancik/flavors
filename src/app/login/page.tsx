@@ -16,20 +16,25 @@ export default function LoginPage() {
 
   const role = searchParams.get('role'); // "admin" або "seller"
 
+  // Краще типізувати помилку як unknown, і кастити з перевірками
   const handleLogin = async () => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      if (role === 'admin' && ADMIN_EMAILS.includes(user.email || '')) {
+      if (role === 'admin' && ADMIN_EMAILS.includes(user.email ?? '')) {
         router.push('/admin');
-      } else if (role === 'seller' && SELLER_EMAILS.includes(user.email || '')) {
+      } else if (role === 'seller' && SELLER_EMAILS.includes(user.email ?? '')) {
         router.push('/seller');
       } else {
         alert('⛔ У вас немає доступу до цієї панелі.');
       }
-    } catch (error: any) {
-      alert('❌ Помилка входу: ' + error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        alert('❌ Помилка входу: ' + error.message);
+      } else {
+        alert('❌ Сталася невідома помилка');
+      }
     }
   };
 

@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, setDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocs, collection, QuerySnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 import { useLoading } from '@/context/LoadingContext';
@@ -12,6 +11,23 @@ import { useLoading } from '@/context/LoadingContext';
 const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID!;
 
+interface SellerLog {
+  total: number;
+  cash: number;
+  card: number;
+  salary: number;
+  mine: number;
+}
+
+interface Flavor {
+  name: string;
+  quantity: number;
+}
+
+interface LiquidData {
+  brand: string;
+  flavors?: Flavor[];
+}
 
 async function sendTelegramMessage(text: string) {
   await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -26,25 +42,35 @@ async function sendTelegramMessage(text: string) {
 }
 
 export default function AdminDashboard() {
-  const [log, setLog] = useState<any>(null);
+  const [log, setLog] = useState<SellerLog | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [loadingButton, setLoadingButton] = useState<string | null>(null);
-  const [form, setForm] = useState({ total: '', cash: '', card: '', salary: '', mine: '' });
+  const [form, setForm] = useState<Record<keyof SellerLog, string>>({
+    total: '',
+    cash: '',
+    card: '',
+    salary: '',
+    mine: '',
+  });
   const [amount, setAmount] = useState('');
   const router = useRouter();
   const { isLoading, setLoading } = useLoading();
 
-
-
   useEffect(() => {
     const fetch = async () => {
-      setLoading(true); // start loading
+      setLoading(true);
       const ref = doc(db, 'seller_logs', 'current');
       const snap = await getDoc(ref);
 
       if (snap.exists()) {
-        const data = snap.data();
-        setLog(data);
+        const data = snap.data() as Partial<SellerLog>;
+        setLog({
+          total: data.total ?? 0,
+          cash: data.cash ?? 0,
+          card: data.card ?? 0,
+          salary: data.salary ?? 0,
+          mine: data.mine ?? 0,
+        });
         setForm({
           total: String(data.total ?? 0),
           cash: String(data.cash ?? 0),
@@ -53,7 +79,7 @@ export default function AdminDashboard() {
           mine: String(data.mine ?? 0),
         });
       } else {
-        const emptyData = { total: 0, cash: 0, card: 0, salary: 0, mine: 0 };
+        const emptyData: SellerLog = { total: 0, cash: 0, card: 0, salary: 0, mine: 0 };
         await setDoc(ref, emptyData);
         setLog(emptyData);
         setForm({
@@ -64,30 +90,29 @@ export default function AdminDashboard() {
           mine: '0',
         });
       }
-      setLoading(false); // end loading
+      setLoading(false);
     };
     fetch();
-  }, []);
+  }, [setLoading]);
 
-
-  const sendReportAndAvailability = async (newData: any, operation: string) => {
-    const snapshot = await getDocs(collection(db, 'liquids'));
+  const sendReportAndAvailability = async (newData: SellerLog, operation: string) => {
+    const snapshot: QuerySnapshot<DocumentData> = await getDocs(collection(db, 'liquids'));
     const flavors: string[] = [];
     const emptyFlavors: string[] = [];
     const emptyBrands: string[] = [];
 
     snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
+      const data = docSnap.data() as LiquidData;
       const brand = data.brand;
-      const activeFlavors = (data.flavors || []).filter((f: any) => (f.quantity ?? 0) > 0);
+      const activeFlavors = (data.flavors || []).filter(f => (f.quantity ?? 0) > 0);
       if (activeFlavors.length) {
-        activeFlavors.forEach((f: any) => {
+        activeFlavors.forEach(f => {
           flavors.push(`${brand} - ${f.name}: ${f.quantity}шт`);
         });
       } else {
         emptyBrands.push(brand);
       }
-      (data.flavors || []).forEach((f: any) => {
+      (data.flavors || []).forEach(f => {
         if ((f.quantity ?? 0) === 0) {
           emptyFlavors.push(`${brand} - ${f.name}`);
         }
@@ -107,7 +132,7 @@ export default function AdminDashboard() {
       ? `<b>📦 Актуальна наявність рідин:</b>\n` + flavors.join('\n')
       : `<b>УВАГА:</b> Усі рідини закінчились.`;
 
-    const disappearanceList = [...emptyBrands.map((b) => `Бренд зник: ${b}`), ...emptyFlavors.map((f) => `Смак зник: ${f}`)].join('\n');
+    const disappearanceList = [...emptyBrands.map(b => `Бренд зник: ${b}`), ...emptyFlavors.map(f => `Смак зник: ${f}`)].join('\n');
 
     await sendTelegramMessage(reportMessage);
     await sendTelegramMessage(flavorList);
@@ -125,7 +150,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const updateLog = async (newData: any, operation = 'Оновлення даних'): Promise<void> => {
+  const updateLog = async (newData: SellerLog, operation = 'Оновлення даних'): Promise<void> => {
     const ref = doc(db, 'seller_logs', 'current');
     await setDoc(ref, newData);
     setLog(newData);
@@ -144,7 +169,6 @@ export default function AdminDashboard() {
       await callback();
     }
   };
-
 
   const handleSave = async (): Promise<void> => {
     await confirmAndExecute('Зберегти зміни?', async () => {
@@ -170,6 +194,7 @@ export default function AdminDashboard() {
       return;
     }
     await confirmAndExecute(`Видати ${num} грн ${type === 'mine' ? 'собі' : 'продавцю'}?`, async () => {
+      if (!log) return;
       const updated = { ...log, [type]: log[type] - num };
       await updateLog(updated, `💵 Видано ${num} грн ${type === 'mine' ? 'собі' : 'продавцю'}`);
       toast.success('ЗП видано');
@@ -184,6 +209,7 @@ export default function AdminDashboard() {
       return;
     }
     await confirmAndExecute(`${type === 'add' ? 'Додати' : 'Зняти'} ${num} грн ${field === 'cash' ? 'готівки' : 'карти'}?`, async () => {
+      if (!log) return;
       const updated = {
         ...log,
         [field]: type === 'add' ? log[field] + num : log[field] - num,
@@ -195,9 +221,6 @@ export default function AdminDashboard() {
   };
 
   if (isLoading || !log) return <LoadingSpinner />;
-
-
-
 
   return (
     <>
@@ -222,7 +245,6 @@ export default function AdminDashboard() {
           >
             🔍 Перевірка товарів
           </button>
-
           <button
             onClick={() => {
               setLoading(true);
@@ -232,7 +254,6 @@ export default function AdminDashboard() {
           >
             🗑️ Списати товар
           </button>
-
           <button
             onClick={() => {
               setLoading(true);
@@ -242,20 +263,20 @@ export default function AdminDashboard() {
           >
             📈 Статистика
           </button>
-
         </nav>
 
         {editMode ? (
           <form className="space-y-4 bg-gray-50 p-4 rounded-md shadow-inner">
-            {['total', 'cash', 'card', 'salary', 'mine'].map((key) => (
+            {(['total', 'cash', 'card', 'salary', 'mine'] as (keyof SellerLog)[]).map((key) => (
               <div key={key}>
                 <label className="block mb-1 text-gray-700 capitalize font-semibold">{key}</label>
                 <input
                   type="number"
-                  value={form[key as keyof typeof form]}
+                  value={form[key]}
                   onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                   placeholder={key}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
               </div>
             ))}
             <button
@@ -294,7 +315,8 @@ export default function AdminDashboard() {
             placeholder="Сума"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          />
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
             <button
               onClick={() => withLoader('mine', () => handlePay('mine'))}
