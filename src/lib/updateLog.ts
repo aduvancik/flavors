@@ -37,23 +37,48 @@ interface SellerLogData {
   [key: string]: unknown;
 }
 
-export const getRemainingTotal = async (): Promise<number> => {
+export const getRemainingTotal = async ({
+  retries = 5,
+  delay = 300,
+  expectedBrand,
+}: {
+  retries?: number;
+  delay?: number;
+  expectedBrand?: string;
+} = {}): Promise<number> => {
   let sum = 0;
-  for (const type of TYPE_OPTIONS) {
-    const snap = await getDocs(collection(db, type));
-    snap.forEach((docSnap: QueryDocumentSnapshot<DocumentData>) => {
-      const data = docSnap.data() as ProductData;
-      const salePrice = data.salePrice ?? 0;
-      (data.flavors ?? []).forEach((f: Flavor) => {
-        sum += (f.quantity ?? 0) * salePrice;
+  let found = !expectedBrand; // Якщо не шукаємо бренд — одразу true
+
+  while (retries-- > 0 && !found) {
+    sum = 0;
+
+    for (const type of TYPE_OPTIONS) {
+      const snap = await getDocs(collection(db, type));
+      snap.forEach((docSnap: QueryDocumentSnapshot<DocumentData>) => {
+        const data = docSnap.data() as ProductData;
+        const salePrice = data.salePrice ?? 0;
+
+        if (data.flavors?.length) {
+          data.flavors.forEach((f: Flavor) => {
+            sum += (f.quantity ?? 0) * salePrice;
+          });
+        } else if (type !== 'liquids') {
+          sum += (data.quantity ?? 0) * salePrice;
+        }
+
+        // Чи вже зʼявився потрібний бренд?
+        if (expectedBrand && data.brand === expectedBrand) {
+          found = true;
+        }
       });
-      if (type !== 'liquids' && !data.flavors) {
-        sum += (data.quantity ?? 0) * salePrice;
-      }
-    });
+    }
+
+    if (!found) await new Promise(res => setTimeout(res, delay));
   }
+
   return sum;
 };
+
 
 export async function sendReportAndAvailability(newData: SellerLogData, operation: string): Promise<void> {
   const snapshot = await getDocs(collection(db, 'liquids'));
@@ -81,7 +106,7 @@ export async function sendReportAndAvailability(newData: SellerLogData, operatio
     });
   });
 
-  const total = await getRemainingTotal();
+  const total = await getRemainingTotal({ expectedBrand: Object.keys(newData)[0] });
 
   const logRef = doc(db, 'seller_logs', 'current');
   await setDoc(logRef, { ...newData, total }, { merge: true });
@@ -90,6 +115,11 @@ export async function sendReportAndAvailability(newData: SellerLogData, operatio
   const card = Number(newData.card ?? 0);
   const salary = Number(newData.salary ?? 0);
   const mine = Number(newData.mine ?? 0);
+
+  const flavorList = flavors.length
+    ? `<b>📦 Актуальна наявність рідин:</b>\n` + flavors.join('\n')
+    : `<b>УВАГА:</b> Усі рідини закінчились.`;
+
 
   const reportMessage = `🧾 <b>- ${operation} -</b>
 
@@ -100,13 +130,6 @@ export async function sendReportAndAvailability(newData: SellerLogData, operatio
 <b>ЗП продавця:</b> ${salary} грн
 <b>Моє:</b> ${mine} грн`;
 
-  const flavorList = flavors.length
-    ? `<b>📦 Актуальна наявність рідин:</b>\n` + flavors.join('\n')
-    : `<b>УВАГА:</b> Усі рідини закінчились.`;
-
-  // await sendTelegramMessage(reportMessage);
-  // await sendTelegramMessage(flavorList);
-  // якщо треба, раскоментуй відправку
 }
 
 export async function sendAvailabilityAndSellerLog(operation: string, newlyDepleted?: string[]): Promise<void> {
@@ -140,7 +163,7 @@ export async function sendAvailabilityAndSellerLog(operation: string, newlyDeple
   const logSnap = await getDoc(logRef);
   const logData = logSnap.exists() ? (logSnap.data() as SellerLogData) : {};
 
-  const total = Number(logData.total ?? 0);
+  const total = await getRemainingTotal({ expectedBrand: Object.keys(brandMap)[0] });
   const cash = Number(logData.cash ?? 0);
   const card = Number(logData.card ?? 0);
   const salary = Number(logData.salary ?? 0);
@@ -148,7 +171,7 @@ export async function sendAvailabilityAndSellerLog(operation: string, newlyDeple
 
   const sellerLogMessage = `🧾 <b>${operation}</b>
 
-<b>Загальний товар (залишок):</b> ${total} грн
+<b>Загальний товар (залишок) </b> ${total} грн
 <b>Готівка:</b> ${cash} грн
 <b>Карта:</b> ${card} грн
 <b>Загальна сума:</b> ${cash + card} грн
