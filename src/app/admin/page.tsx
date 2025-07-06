@@ -21,7 +21,6 @@ interface Flavor {
   name: string;
   quantity: number;
 }
-
 interface LiquidData {
   brand: string;
   flavors?: Flavor[];
@@ -82,6 +81,39 @@ export default function AdminDashboard() {
     };
     fetch();
   }, [setLoading]);
+  // додаємо на початку AdminDashboard функцію
+async function getNewlyDepleted(
+  emptyBrands: string[],
+  emptyFlavors: string[]
+): Promise<{ newlyDepletedBrands: string[]; newlyDepletedFlavors: string[] }> {
+  const newlyDepletedBrands: string[] = [];
+  const newlyDepletedFlavors: string[] = [];
+
+  // Перевіряємо бренди
+  for (const brand of emptyBrands) {
+    const brandRef = doc(db, 'depleted_brands', brand);
+    const brandSnap = await getDoc(brandRef);
+    if (!brandSnap.exists()) {
+      newlyDepletedBrands.push(brand);
+      await setDoc(brandRef, { depletedAt: new Date() });
+    }
+  }
+
+  // Перевіряємо смаки
+  for (const flavor of emptyFlavors) {
+    // Ідентифікатор для смака (щоб не було проблем з пробілами тощо)
+    const flavorId = flavor.replace(/\s+/g, '_').toLowerCase();
+    const flavorRef = doc(db, 'depleted_flavors', flavorId);
+    const flavorSnap = await getDoc(flavorRef);
+    if (!flavorSnap.exists()) {
+      newlyDepletedFlavors.push(flavor);
+      await setDoc(flavorRef, { depletedAt: new Date() });
+    }
+  }
+
+  return { newlyDepletedBrands, newlyDepletedFlavors };
+}
+
 
   const sendReportAndAvailability = async (newData: SellerLog, operation: string) => {
     const snapshot: QuerySnapshot<DocumentData> = await getDocs(collection(db, 'liquids'));
@@ -120,14 +152,20 @@ export default function AdminDashboard() {
       ? `<b>📦 Актуальна наявність рідин:</b>\n` + flavors.join('\n')
       : `<b>УВАГА:</b> Усі рідини закінчились.`;
 
-    const disappearanceList = [...emptyBrands.map(b => `Бренд зник: ${b}`), ...emptyFlavors.map(f => `Смак зник: ${f}`)].join('\n');
+    // Отримуємо нові "зниклі" позиції
+    const { newlyDepletedBrands, newlyDepletedFlavors } = await getNewlyDepleted(emptyBrands, emptyFlavors);
+
+    const disappearanceList = [...newlyDepletedBrands.map(b => `Бренд зник: ${b}`), ...newlyDepletedFlavors.map(f => `Смак зник: ${f}`)].join('\n');
 
     await sendTelegramMessage(reportMessage);
     await sendTelegramMessage(flavorList);
+
+
     if (disappearanceList) {
       await sendTelegramMessage(`❗ <b>Зміни в наявності:</b>\n${disappearanceList}`);
     }
   };
+
 
   const withLoader = async (key: string, fn: () => Promise<void>): Promise<void> => {
     setLoadingButton(key);
