@@ -7,9 +7,7 @@ import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner/LoadingSpinner';
 import { useLoading } from '@/context/LoadingContext';
-
-const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN!;
-const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID!;
+import { sendTelegramMessage } from '../utils/sendTelegramMessage';
 
 interface SellerLog {
   total: number;
@@ -29,17 +27,7 @@ interface LiquidData {
   flavors?: Flavor[];
 }
 
-async function sendTelegramMessage(text: string) {
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      parse_mode: 'HTML',
-    }),
-  });
-}
+
 
 export default function AdminDashboard() {
   const [log, setLog] = useState<SellerLog | null>(null);

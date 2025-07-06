@@ -10,21 +10,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from './firebase';
-
-const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN!;
-const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID!;
-
-export async function sendTelegramMessage(text: string): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      parse_mode: 'HTML',
-    }),
-  });
-}
+import { sendTelegramMessage } from '@/app/utils/sendTelegramMessage';
 
 const TYPE_OPTIONS = ['liquids', 'cartridges', 'nicoboosters'] as const;
 type ProductType = typeof TYPE_OPTIONS[number];
@@ -205,10 +191,10 @@ export async function sendSaleSummaryMessage({
   });
 
   let message = `<b>${timestamp}</b>\nПродаж ${selectedType === 'liquids'
-      ? 'рідини'
-      : selectedType === 'cartridges'
-        ? 'катриджа'
-        : 'товару'
+    ? 'рідини'
+    : selectedType === 'cartridges'
+      ? 'катриджа'
+      : 'товару'
     }:\n`;
 
   const newlyDepleted: string[] = [];
