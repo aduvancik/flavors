@@ -6,7 +6,7 @@ export async function POST(req: Request) {
 
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
   const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-  console.log('TOKEN:', process.env.TELEGRAM_BOT_TOKEN);
+  console.log(TELEGRAM_BOT_TOKEN);
 
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     return NextResponse.json({ error: 'Missing token or chat_id' }, { status: 500 });
