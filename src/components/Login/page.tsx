@@ -6,7 +6,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 const ADMIN_EMAILS = ['2103kokakola2004@gmail.com'];
-const SELLER_EMAILS = ['2103kokakola2004@gmail.com', 'seller@gmail.com'];
+const SELLER_EMAILS = ['2103kokakola2004@gmail.com', '123123@gmail.com'];
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');

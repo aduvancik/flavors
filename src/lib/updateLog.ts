@@ -37,6 +37,20 @@ interface SellerLogData {
   [key: string]: unknown;
 }
 
+function generateAvailabilityMessage(brandMap: Record<string, string[]>): string {
+  let message = `<b>📦 Актуальна наявність рідин:</b>\n\n`;
+
+  for (const brand in brandMap) {
+    message += `<b>${brand}</b>\n`;
+    brandMap[brand].forEach(entry => {
+      message += `  ${entry}\n`;
+    });
+    message += `\n`;
+  }
+
+  return message.trim();
+}
+
 export const getRemainingTotal = async ({
   retries = 5,
   delay = 300,
@@ -47,7 +61,7 @@ export const getRemainingTotal = async ({
   expectedBrand?: string;
 } = {}): Promise<number> => {
   let sum = 0;
-  let found = !expectedBrand; // Якщо не шукаємо бренд — одразу true
+  let found = !expectedBrand;
 
   while (retries-- > 0 && !found) {
     sum = 0;
@@ -58,15 +72,14 @@ export const getRemainingTotal = async ({
         const data = docSnap.data() as ProductData;
         const salePrice = data.salePrice ?? 0;
 
-        if (data.flavors?.length) {
+        if (type === 'liquids' && data.flavors?.length) {
           data.flavors.forEach((f: Flavor) => {
             sum += (f.quantity ?? 0) * salePrice;
           });
-        } else if (type !== 'liquids') {
+        } else {
           sum += (data.quantity ?? 0) * salePrice;
         }
 
-        // Чи вже зʼявився потрібний бренд?
         if (expectedBrand && data.brand === expectedBrand) {
           found = true;
         }
@@ -79,32 +92,31 @@ export const getRemainingTotal = async ({
   return sum;
 };
 
-
 export async function sendReportAndAvailability(newData: SellerLogData, operation: string): Promise<void> {
-  const snapshot = await getDocs(collection(db, 'liquids'));
-  const flavors: string[] = [];
-  const emptyFlavors: string[] = [];
-  const emptyBrands: string[] = [];
+  const brandMap: Record<string, string[]> = {};
 
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data() as ProductData;
-    const brand = data.brand;
-    const activeFlavors = (data.flavors ?? []).filter(f => (f.quantity ?? 0) > 0);
+  for (const type of TYPE_OPTIONS) {
+    const snapshot = await getDocs(collection(db, type));
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data() as ProductData;
+      const brand = data.brand;
 
-    if (activeFlavors.length) {
-      activeFlavors.forEach(f => {
-        flavors.push(`${brand} - ${f.name}: ${f.quantity}шт`);
-      });
-    } else {
-      emptyBrands.push(brand);
-    }
+      let items: Flavor[] = [];
 
-    (data.flavors ?? []).forEach(f => {
-      if ((f.quantity ?? 0) === 0) {
-        emptyFlavors.push(`${brand} - ${f.name}`);
+      if (type === 'liquids' && data.flavors?.length) {
+        items = data.flavors.filter(f => (f.quantity ?? 0) > 0);
+      } else if (type !== 'liquids' && data.quantity && data.quantity > 0) {
+        items = [{ name: 'Основний товар', quantity: data.quantity }];
+      }
+
+      if (items.length > 0) {
+        if (!brandMap[brand]) brandMap[brand] = [];
+        items.forEach(item => {
+          brandMap[brand].push(`${item.name}: ${item.quantity}шт`);
+        });
       }
     });
-  });
+  }
 
   const total = await getRemainingTotal({ expectedBrand: Object.keys(newData)[0] });
 
@@ -116,48 +128,48 @@ export async function sendReportAndAvailability(newData: SellerLogData, operatio
   const salary = Number(newData.salary ?? 0);
   const mine = Number(newData.mine ?? 0);
 
-  const flavorList = flavors.length
-    ? `<b>📦 Актуальна наявність рідин:</b>\n` + flavors.join('\n')
-    : `<b>УВАГА:</b> Усі рідини закінчились.`;
-
+  const availabilityMessage = generateAvailabilityMessage(brandMap);
 
   const reportMessage = `🧾 <b>- ${operation} -</b>
 
-<b>Загальний товар (залишок):</b> ${total} шт
+<b>Загальний товар (залишок):</b> ${total} грн
 <b>Готівка:</b> ${cash} грн
 <b>Карта:</b> ${card} грн
 <b>Загальна сума:</b> ${cash + card} грн
 <b>ЗП продавця:</b> ${salary} грн
 <b>Моє:</b> ${mine} грн`;
 
+  await sendTelegramMessage(reportMessage);
+  await sendTelegramMessage(availabilityMessage);
 }
 
 export async function sendAvailabilityAndSellerLog(operation: string, newlyDepleted?: string[]): Promise<void> {
-  const snapshot = await getDocs(collection(db, 'liquids'));
   const brandMap: Record<string, string[]> = {};
 
-  snapshot.forEach(docSnap => {
-    const data = docSnap.data() as ProductData;
-    const brand = data.brand;
-    const flavors = data.flavors ?? [];
+  for (const type of TYPE_OPTIONS) {
+    const snapshot = await getDocs(collection(db, type));
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data() as ProductData;
+      const brand = data.brand;
 
-    const activeFlavors = flavors.filter(f => (f.quantity ?? 0) > 0);
+      let items: Flavor[] = [];
 
-    if (!brandMap[brand]) brandMap[brand] = [];
+      if (type === 'liquids' && data.flavors?.length) {
+        items = data.flavors.filter(f => (f.quantity ?? 0) > 0);
+      } else if (type !== 'liquids' && data.quantity && data.quantity > 0) {
+        items = [{ name: 'Основний товар', quantity: data.quantity }];
+      }
 
-    activeFlavors.forEach(f => {
-      brandMap[brand].push(`${f.name}: ${f.quantity}шт`);
-    });
-  });
-
-  let availabilityMessage = `<b>📦 Актуальна наявність рідин:</b>\n`;
-
-  for (const brand in brandMap) {
-    availabilityMessage += `${brand}\n`;
-    brandMap[brand].forEach(flavorLine => {
-      availabilityMessage += ` ${flavorLine}\n`;
+      if (items.length > 0) {
+        if (!brandMap[brand]) brandMap[brand] = [];
+        items.forEach(item => {
+          brandMap[brand].push(`${item.name}: ${item.quantity}шт`);
+        });
+      }
     });
   }
+
+  const availabilityMessage = generateAvailabilityMessage(brandMap);
 
   const logRef = doc(db, 'seller_logs', 'current');
   const logSnap = await getDoc(logRef);
@@ -171,7 +183,7 @@ export async function sendAvailabilityAndSellerLog(operation: string, newlyDeple
 
   const sellerLogMessage = `🧾 <b>${operation}</b>
 
-<b>Загальний товар (залишок) </b> ${total} грн
+<b>Загальний товар (залишок):</b> ${total} грн
 <b>Готівка:</b> ${cash} грн
 <b>Карта:</b> ${card} грн
 <b>Загальна сума:</b> ${cash + card} грн
@@ -214,10 +226,10 @@ export async function sendSaleSummaryMessage({
   });
 
   let message = `<b>${timestamp}</b>\nПродаж ${selectedType === 'liquids'
-    ? 'рідини'
-    : selectedType === 'cartridges'
-      ? 'катриджа'
-      : 'товару'
+      ? 'рідини'
+      : selectedType === 'cartridges'
+        ? 'катриджа'
+        : 'товару'
     }:\n`;
 
   const newlyDepleted: string[] = [];
