@@ -1,4 +1,4 @@
-<h1 align="center">🧃 Vape Inventory & Sales System</h1>
+<h1 align="center">🧃 Vape Inventory & Sales System(У процесі розробки)</h1>
 
 <p align="center">
   Повноцінна система обліку продажів рідин, картриджів і нікобустерів з Firebase, React, TypeScript та Telegram інтеграцією.
