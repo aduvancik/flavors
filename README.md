@@ -12,7 +12,7 @@
 
 <h2>📸 Screenshots</h2>
 
-<img src="https://your-image-url.com/screenshot.png" alt="screenshot" width="100%" />
+![screenshot](https://github.com/aduvancik/aduvancik/blob/main/flavors-video.mp4)
 
 ---
 
