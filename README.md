@@ -1,36 +1,165 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<h1 align="center">🧃 Vape Inventory & Sales System</h1>
 
-## Getting Started
+<p align="center">
+  Повноцінна система обліку продажів рідин, картриджів і нікобустерів з Firebase, React, TypeScript та Telegram інтеграцією.
+</p>
 
-First, run the development server:
+<h2>🚀 Demo</h2>
+
+[Перейти на сайт](https://vape-shopchik-ad.netlify.app/)
+
+---
+
+<h2>📸 Screenshots</h2>
+
+<img src="https://your-image-url.com/screenshot.png" alt="screenshot" width="100%" />
+
+---
+
+## 📦 Про проєкт
+
+Цей додаток дозволяє:
+- Вести облік товару: рідини, картриджі, нікобустери
+- Вказувати бренд, смаки, кількість, ціну, зарплату продавця
+- Продавати товари через зручну панель
+- Вибирати спосіб оплати: готівка, картка або поділ
+- Автоматично формувати звіти та відправляти їх у Telegram
+- Оновлювати залишки товару та відслідковувати, що закінчилось
+
+---
+
+## ⚙️ Функції
+
+- ✅ Панель продавця
+- ✅ Облік залишків у Firebase
+- ✅ Статистика по днях (Daily Sales)
+- ✅ Визначення "вичерпано" зі збереженням у окрему колекцію
+- ✅ Повідомлення в Telegram з:
+  - Загальним звітом
+  - Залишками по брендах і смаках
+  - Попередженням про вичерпання товару
+
+---
+
+Ось **повністю оформлений пункт `🛠️ Installation` для README.md** у вигляді markdown-коду з детальними інструкціями, включаючи підключення Firebase і Telegram:
+
+```md
+## 🛠️ Installation & Setup
+
+> A step-by-step guide to launch your own vape seller platform with Firebase and Telegram integration.
+
+---
+
+### 1. 🔁 Clone the repository
+
+```bash
+git clone https://github.com/your-username/vape-seller-panel.git
+cd vape-seller-panel
+```
+
+---
+
+### 2. 📦 Install dependencies
+
+```bash
+npm install
+```
+
+---
+
+### 3. 🔥 Set up Firebase
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project (e.g., `vape-seller`)
+3. Enable **Cloud Firestore** in test mode
+4. Go to **Project settings** → **General** tab → scroll to **Your apps**
+5. Click `</>` to create a Web App
+6. Copy your Firebase config and replace `/lib/firebase.ts` with:
+
+```ts
+// lib/firebase.ts
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_APP.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_APP.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+```
+
+---
+
+### 4. 💬 Connect Telegram Bot
+
+> Used to send sales logs and product availability directly to Telegram.
+
+1. Open Telegram and search for [@BotFather](https://t.me/BotFather)
+2. Run `/newbot` and follow the instructions
+3. Copy the `BOT_TOKEN`
+4. Create a Telegram group and add your bot to it as an **admin**
+5. Send a message to the group, then go to [https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates](https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates)
+6. Find your group `chat_id` (it starts with `-100`)
+7. Create `/app/utils/sendTelegramMessage.ts` and paste:
+
+```ts
+// app/utils/sendTelegramMessage.ts
+export async function sendTelegramMessage(text: string): Promise<void> {
+  const token = 'YOUR_BOT_TOKEN';
+  const chatId = 'YOUR_CHAT_ID';
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+    }),
+  });
+}
+```
+
+✅ Test it by running:
+
+```ts
+sendTelegramMessage("✅ Bot is connected and ready!");
+```
+
+---
+
+### 5. 🧪 Run the project in development mode
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit: [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 6. 🏗️ Build for production
 
-## Learn More
+```bash
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+Optional: Preview production build locally
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+> Now you're ready to manage vape liquid sales, track inventory, and send logs to Telegram 🚀
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Якщо хочеш — можу згенерувати повний `README.md` з усіма секціями: опис, демо, скріншоти, інсталяція, стек технологій, автор, ліцензія.
