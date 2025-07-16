@@ -12,7 +12,7 @@
 
 <h2>📸 Screenshots</h2>
 
-![screenshot](https://github.com/aduvancik/aduvancik/blob/main/flavors-video.mp4)
+[![Дивитися відео на YouTube](https://img.youtube.com/vi/x7MJg2S9NsY/0.jpg)](https://youtu.be/x7MJg2S9NsY)
 
 ---
 
